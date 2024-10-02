@@ -10,7 +10,36 @@ This provides extensions to standard cdk8s object to facilitate application depl
 
 ## Usage
 
-WIP
+### Example CLI Usage
+
+#### Synth all apps
+
+```bash
+python3 main.py synth --all
+```
+
+#### Synth selected apps
+
+```bash
+python3 main.py synth --apps dev prod
+```
+
+### Options
+
+```text
+positional arguments:
+  {deploy,synth}        The action to perform.
+
+options:
+  -h, --help            show this help message and exit
+  --apps APPS [APPS ...]
+                        the apps to deploy in a space seperated list
+  --all                 deploy all apps
+  --context CONTEXT     The Kubernetes context to use. Defaults to minikube
+  --kube-config-file KUBE_CONFIG_FILE
+                        the path to a kubeconfig file
+  --verbose             enable verbose output
+```
 
 ## Development
 

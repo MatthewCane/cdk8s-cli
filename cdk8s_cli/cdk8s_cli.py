@@ -63,15 +63,36 @@ class CLIHandler:
 
     def _parse_args(self) -> Namespace:
         parser = ArgumentParser()
-        parser.add_argument("action", choices=["deploy", "synth"])
-        parser.add_argument("--context", default="minikube", type=str)
+        parser.add_argument(
+            "action",
+            choices=["deploy", "synth"],
+            help="The action to perform.",
+        )
 
         group = parser.add_mutually_exclusive_group()
-        group.add_argument("--apps", nargs="+", type=str)
-        group.add_argument("--all", action="store_true")
+        group.add_argument(
+            "--apps",
+            nargs="+",
+            type=str,
+            help="the apps to deploy in a space seperated list",
+        )
+        group.add_argument("--all", action="store_true", help="deploy all apps")
 
-        parser.add_argument("--kube-config-file", default=None, type=str)
-        parser.add_argument("--verbose", action="store_true")
+        parser.add_argument(
+            "--context",
+            default="minikube",
+            type=str,
+            help="The Kubernetes context to use. Defaults to minikube",
+        )
+        parser.add_argument(
+            "--kube-config-file",
+            default=None,
+            type=str,
+            help="the path to a kubeconfig file",
+        )
+        parser.add_argument(
+            "--verbose", action="store_true", help="enable verbose output"
+        )
 
         return parser.parse_args()
 
