@@ -43,7 +43,17 @@ options:
 
 ## Development
 
-This project is built using Poetry as the package manager.
+This project is built using:
+
+- Poetry as the package manager
+- Ruff for formatting and linting
+
+### Features to be implemented
+
+- [ ] Unit tests
+- [ ] End-to-end tests
+- [ ] Complete documentation
+- [ ] Improve customisation
 
 ## Examples
 
