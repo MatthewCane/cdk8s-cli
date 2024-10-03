@@ -2,7 +2,7 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
-from cdk8s import App, IResolver, YamlOutputType
+from cdk8s import App, IResolver, YamlOutputType, Chart
 from kubernetes.utils import create_from_yaml
 import kubernetes
 from tempfile import NamedTemporaryFile
@@ -46,6 +46,15 @@ class CLIHandler:
         if args.action == "deploy":
             self._deploy_apps(k8s_client, args, apps)
 
+        if args.action == "list":
+            self._list_apps(apps)
+
+    def _list_apps(self, apps: list[App]) -> None:
+        for app in apps:
+            print(app.name)
+            for chart in app.charts:
+                print(f"└──{chart.node.id}")
+
     def _synth_apps(self, apps: list[App]) -> None:
         for app in apps:
             app.synth()
@@ -74,7 +83,7 @@ class CLIHandler:
         parser = ArgumentParser()
         parser.add_argument(
             "action",
-            choices=["deploy", "synth"],
+            choices=["deploy", "synth", "list"],
             help="The action to perform.",
         )
 
