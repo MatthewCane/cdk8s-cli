@@ -56,6 +56,15 @@ class CLIHandler:
     def _deploy_apps(
         self, k8s_client: kubernetes.client.ApiClient, args: Namespace, apps: list[App]
     ) -> None:
+        if not args.unattended:
+            print(
+                f"Deploying the following apps: [blue]{"[/blue], [blue]".join([app.name for app in apps])}[/blue]. Continue? [y/n]",
+                end=" ",
+            )
+            response = input()
+            if response.lower() != "y":
+                print("Aborted")
+                exit(1)
         for app in apps:
             print(f"Deploying app {app.name}...")
             app.deploy(client=k8s_client, verbose=args.verbose)
@@ -69,7 +78,7 @@ class CLIHandler:
             help="The action to perform.",
         )
 
-        group = parser.add_mutually_exclusive_group()
+        group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             "--apps",
             nargs="+",
@@ -92,6 +101,11 @@ class CLIHandler:
         )
         parser.add_argument(
             "--verbose", action="store_true", help="enable verbose output"
+        )
+        parser.add_argument(
+            "--unattended",
+            action="store_true",
+            help="enable unattended mode. This will not prompt for confirmation before deploying.",
         )
 
         return parser.parse_args()
