@@ -51,9 +51,12 @@ class CLIHandler:
 
     def _list_apps(self, apps: list[App]) -> None:
         for app in apps:
-            print(app.name)
+            print(f"[green]{app.name}[/green]")
             for chart in app.charts:
-                print(f"└──{chart.node.id}")
+                chart_class = f"{chart.__class__.__module__}.{chart.__class__.__name__}"
+                print(
+                    f"└──[blue]{chart.node.id }[/blue] ([purple]{chart_class}[/purple])"
+                )
 
     def _synth_apps(self, apps: list[App]) -> None:
         for app in apps:
