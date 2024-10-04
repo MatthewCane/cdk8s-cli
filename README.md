@@ -28,7 +28,7 @@ python3 main.py synth --apps dev prod
 
 ```text
 positional arguments:
-  {deploy,synth}        The action to perform.
+  {deploy,synth,list}   The action to perform.
 
 options:
   -h, --help            show this help message and exit
@@ -39,6 +39,7 @@ options:
   --kube-config-file KUBE_CONFIG_FILE
                         the path to a kubeconfig file
   --verbose             enable verbose output
+  --unattended          enable unattended mode. This will not prompt for confirmation before deploying.
 ```
 
 ## Development
@@ -54,13 +55,16 @@ This project is built using:
 - [ ] End-to-end tests
 - [ ] Complete documentation
 - [ ] Improve customisation
+- [ ] Diff functionality
 
 ## Examples
 
 Examples can be run using `poetry run python3 examples/<example>/main.py synth --all`
 
 ### [Simple Example](examples/simple)
+
 A very basic example containing a chart with a few simple resources in a single file deployed as a single stage.
 
 ### [Complex Example](examples/complex)
+
 A more complex example with multiple charts and multiple stages.

@@ -2,7 +2,7 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
-from cdk8s import App, IResolver, YamlOutputType, Chart
+from cdk8s import App, IResolver, YamlOutputType
 from kubernetes.utils import create_from_yaml
 import kubernetes
 from tempfile import NamedTemporaryFile
@@ -14,7 +14,7 @@ class CLIHandler:
     def __init__(self) -> None:
         """
         Initializes the KubernetesCLIHandler, parses command-line arguments,
-        and triggers the appropriate action (synth or deploy) on the apps
+        and triggers the appropriate action (synth, deploy, e.c.t.) on the apps
         instantiated in the parent module.
         """
         args = self._parse_args()
@@ -50,6 +50,12 @@ class CLIHandler:
             self._list_apps(apps)
 
     def _list_apps(self, apps: list[App]) -> None:
+        """
+        Lists the apps and their charts.
+
+        Args:
+            apps (list[App]): The apps to list.
+        """
         for app in apps:
             print(f"[green]{app.name}[/green]")
             for chart in app.charts:
@@ -59,6 +65,12 @@ class CLIHandler:
                 )
 
     def _synth_apps(self, apps: list[App]) -> None:
+        """
+        Synthesizes the apps to the outdir specified in the App constructor.
+
+        Args:
+            apps (list[App]): The apps to synthesize.
+        """
         for app in apps:
             app.synth()
         print(
@@ -68,6 +80,14 @@ class CLIHandler:
     def _deploy_apps(
         self, k8s_client: kubernetes.client.ApiClient, args: Namespace, apps: list[App]
     ) -> None:
+        """
+        Deploys the apps to the Kubernetes cluster.
+
+        Args:
+            k8s_client (kubernetes.client.ApiClient): The Kubernetes API client to use for deployment.
+            args (Namespace): The parsed command-line arguments.
+            apps (list[App]): The apps to deploy.
+        """
         if not args.unattended:
             print(
                 f"Deploying the following apps: [blue]{"[/blue], [blue]".join([app.name for app in apps])}[/blue]. Continue? [y/n]",
@@ -79,11 +99,11 @@ class CLIHandler:
                 exit(1)
         for app in apps:
             print(f"Deploying app {app.name}...")
-            app.deploy(client=k8s_client, verbose=args.verbose)
+            app._deploy(client=k8s_client, verbose=args.verbose)
             print("Done")
 
     def _parse_args(self) -> Namespace:
-        parser = ArgumentParser()
+        parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
         parser.add_argument(
             "action",
             choices=["deploy", "synth", "list"],
@@ -154,7 +174,7 @@ class App(App):
         )
         self.name = name
 
-    def deploy(
+    def _deploy(
         self, client: kubernetes.client.ApiClient, verbose: bool = False
     ) -> list:
         """
@@ -162,7 +182,7 @@ class App(App):
 
         Args:
             client (kubernetes.client.ApiClient): The Kubernetes API client to use for deployment.
-            verbose (bool, optional): If True, enables verbose output during deployment. Defaults to False.
+            verbose (bool): Enable verbose output.
 
         Returns:
             list: A list of created Kubernetes API objects.
