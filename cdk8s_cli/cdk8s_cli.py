@@ -52,10 +52,14 @@ class CLIHandler:
             self._list_apps(apps)
 
         if args.action == "diff":
-            self._diff_apps(k8s_client, apps)
+            self._diff_apps(
+                k8s_client,
+                args,
+                apps,
+            )
 
     def _diff_apps(
-        self, k8s_client: kubernetes.client.ApiClient, apps: list[App]
+        self, k8s_client: kubernetes.client.ApiClient, args: Namespace, apps: list[App]
     ) -> None:
         """
         Compares the apps to the current Kubernetes cluster state.
@@ -75,19 +79,22 @@ class CLIHandler:
                     continue
 
                 if kind and name:
+                    path = f"/api/{api_version}/namespaces/{namespace}/{kind.lower()}s/{name}"
+                    if args.verbose:
+                        print(path)
                     try:
                         current = dict(
                             k8s_client.call_api(
-                                f"/api/{api_version}/namespaces/{namespace}/{kind.lower()}s/{name}",
+                                path,
                                 "GET",
                                 response_type="object",
                             )[0]
                         )
                         current["metadata"] = {"name": name, "namespace": namespace}
                         print(f"Diff for {name} ({kind}):")
-                        difference = list(diff(current, manifest))
-                        if difference:
-                            print(difference)
+                        differences = list(diff(current, manifest))
+                        if differences:
+                            [print(difference) for difference in differences]
                         else:
                             print("No differences found.")
                     except kubernetes.client.rest.ApiException:
