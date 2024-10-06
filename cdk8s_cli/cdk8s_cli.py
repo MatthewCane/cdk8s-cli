@@ -8,6 +8,8 @@ import kubernetes
 from tempfile import NamedTemporaryFile
 from typing import Sequence
 from rich import print
+import yaml
+from dictdiffer import diff
 
 
 class CLIHandler:
@@ -50,16 +52,48 @@ class CLIHandler:
             self._list_apps(apps)
 
         if args.action == "diff":
-            self._diff_apps(apps)
+            self._diff_apps(k8s_client, apps)
 
-    def _diff_apps(self, apps: list[App]) -> None:
+    def _diff_apps(
+        self, k8s_client: kubernetes.client.ApiClient, apps: list[App]
+    ) -> None:
         """
         Compares the apps to the current Kubernetes cluster state.
 
         Args:
             apps (list[App]): The apps to compare.
         """
-        raise NotImplementedError
+        for app in apps:
+            manifests: list[dict] = list(yaml.safe_load_all(app.synth_yaml()))
+            for manifest in manifests:
+                kind = manifest.get("kind")
+                name = manifest.get("metadata", {}).get("name")
+                namespace = manifest.get("metadata", {}).get("namespace", "default")
+                api_version = manifest.get("apiVersion")
+
+                if kind == "Namespace":
+                    continue
+
+                if kind and name:
+                    try:
+                        current = dict(
+                            k8s_client.call_api(
+                                f"/api/{api_version}/namespaces/{namespace}/{kind.lower()}s/{name}",
+                                "GET",
+                                response_type="object",
+                            )[0]
+                        )
+                        current["metadata"] = {"name": name, "namespace": namespace}
+                        print(f"Diff for {name} ({kind}):")
+                        difference = list(diff(current, manifest))
+                        if difference:
+                            print(difference)
+                        else:
+                            print("No differences found.")
+                    except kubernetes.client.rest.ApiException:
+                        print(f"Resource {name} ({kind}) not found in cluster")
+                else:
+                    print("Could not find kind or name in manifest.")
 
     def _list_apps(self, apps: list[App]) -> None:
         """
@@ -118,7 +152,7 @@ class CLIHandler:
         parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
         parser.add_argument(
             "action",
-            choices=["deploy", "synth", "list"],
+            choices=["deploy", "synth", "list", "diff"],
             help="The action to perform.",
         )
 
@@ -208,6 +242,8 @@ class App(App):
             f.write(self.synth_yaml())
             f.seek(0)
             resources = create_from_yaml(
-                k8s_client=client, yaml_file=f.name, verbose=verbose, apply=True
+                k8s_client=client,
+                yaml_file=f.name,
+                verbose=verbose,
             )
         return resources
