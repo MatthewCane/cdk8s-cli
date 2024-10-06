@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "cdk8s_cli"
-version = "0.1.0"
-description = ""
+version = "0.1.0-alpha"
+description = "A simple CLI for cdk8s"
 authors = ["Matthew Cane <matthew.cane0@gmail.com>"]
 readme = "README.md"
 packages = [{include = "cdk8s_cli"}]
