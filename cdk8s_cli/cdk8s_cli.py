@@ -49,6 +49,18 @@ class CLIHandler:
         if args.action == "list":
             self._list_apps(apps)
 
+        if args.action == "diff":
+            self._diff_apps(apps)
+
+    def _diff_apps(self, apps: list[App]) -> None:
+        """
+        Compares the apps to the current Kubernetes cluster state.
+
+        Args:
+            apps (list[App]): The apps to compare.
+        """
+        raise NotImplementedError
+
     def _list_apps(self, apps: list[App]) -> None:
         """
         Lists the apps and their charts.
