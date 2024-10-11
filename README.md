@@ -25,6 +25,17 @@ cdk8s_cli(app)
 
 That's it! You can now run your application with the desired flags
 
+```bash
+> python3 my-app.py apply
+Resources synthed to /Users/exampleuser/project/my-project/dist
+Deploy resources? [y/N]: y
+Resource simple-cdk8s-chart-c81aeaa7                    applied.
+Resource simple-cdk8s-chart-deployment-c83ea641         applied in namespace simple-cdk8s-chart-c81aeaa7.
+Resource simple-cdk8s-chart-deployment-service-c8f17013 applied in namespace simple-cdk8s-chart-c81aeaa7.
+Apply complete
+
+```
+
 ### Example CLI Usage
 
 #### Synth all apps
