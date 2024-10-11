@@ -1,6 +1,6 @@
-from cdk8s_cli.cdk8s_cli import CLIHandler, App
+from cdk8s_cli.cdk8s_cli import cdk8s_cli
 import cdk8s_plus_30 as kplus
-from cdk8s import Chart, ApiObjectMetadata
+from cdk8s import App, Chart, ApiObjectMetadata
 from constructs import Construct
 
 
@@ -12,16 +12,13 @@ class ApplicationChart(Chart):
     ) -> None:
         super().__init__(scope, id)
 
-        namespace = kplus.Namespace(
-            self,
-            id,
-        )
+        namespace = kplus.Namespace(self, id)
 
         deployment = kplus.Deployment(
             self,
             "deployment",
-            metadata=ApiObjectMetadata(namespace=namespace.name),
             replicas=1,
+            metadata=ApiObjectMetadata(namespace=namespace.name),
         )
 
         deployment.add_container(
@@ -32,14 +29,16 @@ class ApplicationChart(Chart):
             port_number=80,
         )
 
-        deployment.expose_via_service(service_type=kplus.ServiceType.NODE_PORT)
+        deployment.expose_via_service(
+            service_type=kplus.ServiceType.LOAD_BALANCER,
+        )
 
 
 def main():
-    app = App(name="example")
-    ApplicationChart(app, "chart")
+    app = App()
+    ApplicationChart(app, "simple-cdk8s-chart")
 
-    CLIHandler()
+    cdk8s_cli(app)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cdk8s_cli"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 description = "A simple CLI for cdk8s"
 authors = ["Matthew Cane <matthew.cane0@gmail.com>"]
 readme = "README.md"
@@ -9,11 +9,12 @@ packages = [{include = "cdk8s_cli"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 cdk8s-plus-30 = "^2.2.5"
-kubernetes = "^31.0.0"
+kubernetes = { git = "https://github.com/kubernetes-client/python" }
 rich = "^13.9.1"
 ruff = "^0.6.8"
 pyyaml = "^6.0.2"
 dictdiffer = "^0.9.0"
+more-itertools = "^10.5.0"
 
 
 [build-system]

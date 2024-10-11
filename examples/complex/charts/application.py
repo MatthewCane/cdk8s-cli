@@ -14,16 +14,13 @@ class ApplicationChart(Chart):
         id = "demo-app-" + stage
         super().__init__(scope, id)
 
-        namespace = kplus.Namespace(
-            self,
-            id,
-        )
+        namespace = kplus.Namespace(self, id)
 
         deployment = kplus.Deployment(
             self,
             "deployment",
-            metadata=ApiObjectMetadata(namespace=namespace.name),
             replicas=config.replicas,
+            metadata=ApiObjectMetadata(namespace=namespace.name),
         )
 
         deployment.add_container(

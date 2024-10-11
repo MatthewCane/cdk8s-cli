@@ -1,256 +1,156 @@
-import inspect
-from argparse import ArgumentParser, Namespace
+from cdk8s import App
 from pathlib import Path
-from typing import Any
-from cdk8s import App, IResolver, YamlOutputType
-from kubernetes.utils import create_from_yaml
-import kubernetes
-from tempfile import NamedTemporaryFile
-from typing import Sequence
-from rich import print
-import yaml
-from dictdiffer import diff
+from kubernetes import client, config
+from kubernetes.dynamic import ResourceInstance, DynamicClient
+from kubernetes.utils import create_from_directory, FailToCreateError
+from json import loads
+from rich.console import Console
+from more_itertools import collapse
+from typing import Optional
+from argparse import ArgumentParser, Namespace
 
 
-class CLIHandler:
-    def __init__(self) -> None:
-        """
-        Initializes the KubernetesCLIHandler, parses command-line arguments,
-        and triggers the appropriate action (synth, deploy, e.c.t.) on the apps
-        instantiated in the parent module.
-        """
-        args = self._parse_args()
-        parent_locals = inspect.currentframe().f_back.f_locals
+def _parse_args() -> Namespace:
+    parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
+    parser.add_argument(
+        "action",
+        choices=["synth", "apply"],
+        help="the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster",
+    )
 
-        # Collect list of app objects
-        all_apps = self._get_all_apps(parent_locals)
-        if not all_apps:
-            print("No apps found")
-            exit(1)
+    parser.add_argument(
+        "--apps",
+        nargs="+",
+        help="the apps to apply. If supplied, unnamed apps will always be skipped",
+    )
 
-        # Filter list of apps. This could do with a refactor.
-        if args.all:
-            apps = all_apps
+    parser.add_argument(
+        "--context",
+        default="minikube",
+        type=str,
+        help="the Kubernetes context to use. Defaults to minikube",
+    )
+    # parser.add_argument(
+    #     "--kube-config-file",
+    #     default=None,
+    #     type=str,
+    #     help="the path to a kubeconfig file",
+    # )
+    parser.add_argument("--verbose", action="store_true", help="enable verbose output")
+    parser.add_argument(
+        "--unattended",
+        action="store_true",
+        help="enable unattended mode. This will not prompt for confirmation before applying",
+    )
+
+    return parser.parse_args()
+
+
+def _del_dir(path: Path):
+    for p in path.iterdir():
+        if p.is_dir():
+            _del_dir(p)
+            p.rmdir()
         else:
-            apps = [app for app in all_apps if app.name in args.apps]
-            for app in args.apps:
-                if app not in [app.name for app in all_apps]:
-                    print(f"App {app} not found.")
-                    exit(1)
+            p.unlink()
 
-        k8s_client = kubernetes.config.new_client_from_config(
-            config_file=args.kube_config_file, context=args.context
+
+def _get_resource(client: DynamicClient, resource):
+    resource_type = client.resources.get(
+        api_version=resource.api_version,
+        kind=resource.kind,
+    )
+    return resource_type.get(
+        name=resource.metadata.name,
+        namespace=resource.metadata.namespace,
+    )
+
+
+def _synth_app(app: App, console: Console, name: str, output_dir: Path):
+    try:
+        app.synth()
+        console.print(
+            f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
+        )
+    except Exception as e:
+        console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
+        exit(1)
+
+
+def _print_resources(resources: list[ResourceInstance], console: Console):
+    pad = max([len(resource.metadata.name) for resource in resources])
+    for resource in resources:
+        ns = resource.metadata.namespace
+        console.print(
+            f"Resource [purple]{resource.metadata.name:<{pad}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
         )
 
-        if args.action == "synth":
-            self._synth_apps(apps)
 
-        if args.action == "deploy":
-            self._deploy_apps(k8s_client, args, apps)
+def cdk8s_cli(
+    app: App,
+    name: Optional[str] = None,
+    kube_context: str = "minikube",
+    k8s_client: Optional[client.ApiClient] = None,
+    verbose: bool = False,
+):
+    args = _parse_args()
+    console = Console()
+    if args.apps and name not in args.apps:
+        console.print(f"[yellow]Skipping {'app '+name if name else 'unnamed app'}.[/]")
+        return
+    output_dir = Path(Path.cwd(), app.outdir).resolve()
 
-        if args.action == "list":
-            self._list_apps(apps)
+    if args.action == "synth":
+        _synth_app(app, console, name, output_dir)
 
-        if args.action == "diff":
-            self._diff_apps(
-                k8s_client,
-                args,
-                apps,
-            )
+    if args.action == "apply":
+        _del_dir(output_dir)
+        _synth_app(app, console, name, output_dir)
 
-    def _diff_apps(
-        self, k8s_client: kubernetes.client.ApiClient, args: Namespace, apps: list[App]
-    ) -> None:
-        """
-        Compares the apps to the current Kubernetes cluster state.
-
-        Args:
-            apps (list[App]): The apps to compare.
-        """
-        for app in apps:
-            manifests: list[dict] = list(yaml.safe_load_all(app.synth_yaml()))
-            for manifest in manifests:
-                kind = manifest.get("kind")
-                name = manifest.get("metadata", {}).get("name")
-                namespace = manifest.get("metadata", {}).get("namespace", "default")
-                api_version = manifest.get("apiVersion")
-
-                if kind == "Namespace":
-                    continue
-
-                if kind and name:
-                    path = f"/api/{api_version}/namespaces/{namespace}/{kind.lower()}s/{name}"
-                    if args.verbose:
-                        print(path)
-                    try:
-                        current = dict(
-                            k8s_client.call_api(
-                                path,
-                                "GET",
-                                response_type="object",
-                            )[0]
-                        )
-                        current["metadata"] = {"name": name, "namespace": namespace}
-                        print(f"Diff for {name} ({kind}):")
-                        differences = list(diff(current, manifest))
-                        if differences:
-                            [print(difference) for difference in differences]
-                        else:
-                            print("No differences found.")
-                    except kubernetes.client.rest.ApiException:
-                        print(f"Resource {name} ({kind}) not found in cluster")
-                else:
-                    print("Could not find kind or name in manifest.")
-
-    def _list_apps(self, apps: list[App]) -> None:
-        """
-        Lists the apps and their charts.
-
-        Args:
-            apps (list[App]): The apps to list.
-        """
-        for app in apps:
-            print(f"[green]{app.name}[/green]")
-            for chart in app.charts:
-                chart_class = f"{chart.__class__.__module__}.{chart.__class__.__name__}"
-                print(
-                    f"└──[blue]{chart.node.id }[/blue] ([purple]{chart_class}[/purple])"
-                )
-
-    def _synth_apps(self, apps: list[App]) -> None:
-        """
-        Synthesizes the apps to the outdir specified in the App constructor.
-
-        Args:
-            apps (list[App]): The apps to synthesize.
-        """
-        for app in apps:
-            app.synth()
-        print(
-            f"Manifest for [blue]{"[/blue], [blue]".join([app.name for app in apps])}[/blue] synthed to {Path(apps[0].outdir).resolve()}"
-        )
-
-    def _deploy_apps(
-        self, k8s_client: kubernetes.client.ApiClient, args: Namespace, apps: list[App]
-    ) -> None:
-        """
-        Deploys the apps to the Kubernetes cluster.
-
-        Args:
-            k8s_client (kubernetes.client.ApiClient): The Kubernetes API client to use for deployment.
-            args (Namespace): The parsed command-line arguments.
-            apps (list[App]): The apps to deploy.
-        """
         if not args.unattended:
-            print(
-                f"Deploying the following apps: [blue]{"[/blue], [blue]".join([app.name for app in apps])}[/blue]. Continue? [y/n]",
-                end=" ",
+            if console.input(
+                f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
+            ).lower() not in ["y", "yes"]:
+                console.print("[yellow]Skipping.[/]")
+                return
+
+        if not k8s_client:
+            config.load_kube_config(context=kube_context)
+            k8s_client = client.ApiClient()
+
+        resources = list()
+        try:
+            response = create_from_directory(
+                k8s_client=k8s_client,
+                yaml_dir=output_dir,
+                verbose=args.verbose or verbose,
+                namespace=None,
+                apply=True,
             )
-            response = input()
-            if response.lower() != "y":
-                print("Aborted")
-                exit(1)
-        for app in apps:
-            print(f"Deploying app {app.name}...")
-            app._deploy(client=k8s_client, verbose=args.verbose)
-            print("Done")
-
-    def _parse_args(self) -> Namespace:
-        parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
-        parser.add_argument(
-            "action",
-            choices=["deploy", "synth", "list", "diff"],
-            help="The action to perform.",
-        )
-
-        group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument(
-            "--apps",
-            nargs="+",
-            type=str,
-            help="the apps to deploy in a space seperated list",
-        )
-        group.add_argument("--all", action="store_true", help="deploy all apps")
-
-        parser.add_argument(
-            "--context",
-            default="minikube",
-            type=str,
-            help="The Kubernetes context to use. Defaults to minikube",
-        )
-        parser.add_argument(
-            "--kube-config-file",
-            default=None,
-            type=str,
-            help="the path to a kubeconfig file",
-        )
-        parser.add_argument(
-            "--verbose", action="store_true", help="enable verbose output"
-        )
-        parser.add_argument(
-            "--unattended",
-            action="store_true",
-            help="enable unattended mode. This will not prompt for confirmation before deploying.",
-        )
-
-        return parser.parse_args()
-
-    def _get_all_apps(self, locals: dict[str, Any]) -> list[App]:
-        """
-        Returns a list of all App instances in the locals dictionary.
-        """
-        return [locals[app] for app in locals if isinstance(locals[app], App)]
-
-
-class App(App):
-    """
-    Inherit from the cdk8s.App class to add a deploy method that writes the
-    synthesized YAML to a temporary file and deploys it to the Kubernetes cluster.
-    """
-
-    def __init__(
-        self,
-        *,
-        name: str,
-        outdir: str | None = None,
-        output_file_extension: str | None = None,
-        record_construct_metadata: bool | None = None,
-        resolvers: Sequence[IResolver] | None = None,
-        yaml_output_type: YamlOutputType | None = None,
-    ) -> App:
-        super().__init__(
-            outdir=outdir,
-            output_file_extension=output_file_extension,
-            record_construct_metadata=record_construct_metadata,
-            resolvers=resolvers,
-            yaml_output_type=yaml_output_type,
-        )
-        self.name = name
-
-    def _deploy(
-        self, client: kubernetes.client.ApiClient, verbose: bool = False
-    ) -> list:
-        """
-        Deploys Kubernetes resources defined in the apps charts to the cluster.
-
-        Args:
-            client (kubernetes.client.ApiClient): The Kubernetes API client to use for deployment.
-            verbose (bool): Enable verbose output.
-
-        Returns:
-            list: A list of created Kubernetes API objects.
-
-        Notes:
-            The create_from_yaml function will fail with AlreadyExists if the resources already exist in the cluster.
-            This is unavoidable until https://github.com/kubernetes-client/python/pull/2252 is available in a release.
-            Once it is, apply=True can be passed to create_from_yaml to trigger a server-side apply.
-        """
-        with NamedTemporaryFile("w+", suffix=self.output_file_extension) as f:
-            f.write(self.synth_yaml())
-            f.seek(0)
-            resources = create_from_yaml(
-                k8s_client=client,
-                yaml_file=f.name,
-                verbose=verbose,
+            resources: list[ResourceInstance] = list(
+                collapse(response, base_type=ResourceInstance)
             )
-        return resources
+
+        except FailToCreateError as e:
+            for error in e.api_exceptions:
+                body = loads(error.body)
+                console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
+                exit(body["code"])
+
+        _print_resources(resources, console)
+
+        # dynamic_client = DynamicClient(k8s_client)
+        # with console.status(
+        #     "Waiting for successful deployment...",
+        #     spinner="dots",
+        # ):
+        #     for resource in resources:
+        #         while status := _get_resource(dynamic_client, resource)["status"][
+        #             "succeeded"
+        #         ]:
+        #             print(status)
+        #             sleep(1)
+        #         console.print(
+        #             f"Resource [purple]{resource.metadata.name}[/purple] is ready."
+        #         )
+        console.print("[green]Apply complete[/green]")
