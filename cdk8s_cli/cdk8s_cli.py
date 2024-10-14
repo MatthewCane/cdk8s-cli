@@ -62,16 +62,17 @@ class cdk8s_cli:
 
             resources = list()
             try:
-                response = create_from_directory(
-                    k8s_client=k8s_client,
-                    yaml_dir=output_dir,
-                    verbose=self.args.verbose or verbose,
-                    apply=True,
-                    namespace=None,
-                )
-                resources: list[ResourceInstance] = list(
-                    collapse(response, base_type=ResourceInstance)
-                )
+                with self.console.status("Applying resources..."):
+                    response = create_from_directory(
+                        k8s_client=k8s_client,
+                        yaml_dir=output_dir,
+                        verbose=self.args.verbose or verbose,
+                        apply=True,
+                        namespace=None,
+                    )
+                    resources: list[ResourceInstance] = list(
+                        collapse(response, base_type=ResourceInstance)
+                    )
 
             except FailToCreateError as e:
                 for error in e.api_exceptions:
@@ -102,6 +103,9 @@ class cdk8s_cli:
                     sleep(1)
 
     def _parse_args(self) -> Namespace:
+        """
+        Parse the CLI arguments using argparse.
+        """
         parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
         parser.add_argument(
             "action",
@@ -149,7 +153,7 @@ class cdk8s_cli:
                 p.unlink()
 
     def _get_resource(self, client: DynamicClient, resource):
-        if self.verbose:
+        if self.args.verbose:
             details = {
                 "name": resource.metadata.name,
                 "kind": resource.kind,
@@ -196,7 +200,7 @@ class cdk8s_cli:
 
     def _resource_is_healthy(self, resource: ResourceInstance) -> bool:
         status = resource.status
-        if self.verbose:
+        if self.args.verbose:
             self.console.log(f"Resource {resource.metadata.name} status: {status}")
 
         # No status is good status
@@ -223,7 +227,7 @@ class cdk8s_cli:
         for resource in resources:
             resource = self._get_resource(client, resource)
             healthy = self._resource_is_healthy(resource)
-            if self.verbose:
+            if self.args.verbose:
                 self.console.print(
                     f"Resource {resource.metadata.name} is healthy: {healthy}"
                 )
