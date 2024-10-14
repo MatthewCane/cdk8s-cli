@@ -16,7 +16,7 @@ def main():
     prod = App()
     ApplicationChart(prod, "prod", config=ApplicationConfig(replicas=3))
 
-    cdk8s_cli(redis)
+    cdk8s_cli(redis, name="redis")
     cdk8s_cli(dev, name="dev-chart")
     cdk8s_cli(prod, name="prod-chart")
 

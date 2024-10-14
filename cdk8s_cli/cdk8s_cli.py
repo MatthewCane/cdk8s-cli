@@ -8,149 +8,211 @@ from rich.console import Console
 from more_itertools import collapse
 from typing import Optional
 from argparse import ArgumentParser, Namespace
+from time import sleep
 
 
-def _parse_args() -> Namespace:
-    parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
-    parser.add_argument(
-        "action",
-        choices=["synth", "apply"],
-        help="the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster",
-    )
+class cdk8s_cli:
+    def __init__(
+        self,
+        app: App,
+        name: Optional[str] = None,
+        kube_context: str = "minikube",
+        k8s_client: Optional[client.ApiClient] = None,
+        verbose: bool = False,
+    ):
+        self.args = self._parse_args()
 
-    parser.add_argument(
-        "--apps",
-        nargs="+",
-        help="the apps to apply. If supplied, unnamed apps will always be skipped",
-    )
+        self.console = Console()
+        if self.args.apps and name not in self.args.apps:
+            self.console.print(
+                f"[yellow]Skipping {'app '+name if name else 'unnamed app'}.[/]"
+            )
+            return
+        output_dir = Path(Path.cwd(), app.outdir).resolve()
 
-    parser.add_argument(
-        "--context",
-        default="minikube",
-        type=str,
-        help="the Kubernetes context to use. Defaults to minikube",
-    )
-    # parser.add_argument(
-    #     "--kube-config-file",
-    #     default=None,
-    #     type=str,
-    #     help="the path to a kubeconfig file",
-    # )
-    parser.add_argument("--verbose", action="store_true", help="enable verbose output")
-    parser.add_argument(
-        "--unattended",
-        action="store_true",
-        help="enable unattended mode. This will not prompt for confirmation before applying",
-    )
+        if self.args.action == "synth":
+            self._synth_app(app, name, output_dir)
 
-    return parser.parse_args()
+        if self.args.action == "apply":
+            self._del_dir(output_dir)
+            self._synth_app(app, name, output_dir)
 
+            if not self.args.unattended:
+                if self.console.input(
+                    f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
+                ).lower() not in ["y", "yes"]:
+                    self.console.print("[yellow]Skipping.[/]")
+                    return
 
-def _del_dir(path: Path):
-    for p in path.iterdir():
-        if p.is_dir():
-            _del_dir(p)
-            p.rmdir()
-        else:
-            p.unlink()
+            if not k8s_client:
+                config.load_kube_config(context=kube_context)
+                k8s_client = client.ApiClient()
 
+            resources = list()
+            try:
+                response = create_from_directory(
+                    k8s_client=k8s_client,
+                    yaml_dir=output_dir,
+                    verbose=self.args.verbose or verbose,
+                    apply=True,
+                    namespace=None,
+                )
+                resources: list[ResourceInstance] = list(
+                    collapse(response, base_type=ResourceInstance)
+                )
 
-def _get_resource(client: DynamicClient, resource):
-    resource_type = client.resources.get(
-        api_version=resource.api_version,
-        kind=resource.kind,
-    )
-    return resource_type.get(
-        name=resource.metadata.name,
-        namespace=resource.metadata.namespace,
-    )
+            except FailToCreateError as e:
+                for error in e.api_exceptions:
+                    body = loads(error.body)
+                    self.console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
+                    exit(body["code"])
 
+            self._print_resources(resources)
 
-def _synth_app(app: App, console: Console, name: str, output_dir: Path):
-    try:
-        app.synth()
-        console.print(
-            f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
+            self.console.print("[green]Apply complete[/green]")
+            return
+            # The following status check code requires more work to be functional
+            dynamic_client = DynamicClient(k8s_client)
+            readiness = self._get_resource_ready_status(resources, dynamic_client)
+            with self.console.status(
+                status="Waiting for reasources to report ready...\n"
+                + "\n".join(
+                    [
+                        f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
+                        for k, v in readiness.items()
+                    ]
+                )
+            ):
+                while not all(readiness.values()):
+                    readiness = self._get_resource_ready_status(
+                        resources, dynamic_client
+                    )
+                    sleep(1)
+
+    def _parse_args(self) -> Namespace:
+        parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
+        parser.add_argument(
+            "action",
+            choices=["synth", "apply"],
+            help="the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster",
         )
-    except Exception as e:
-        console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
-        exit(1)
 
-
-def _print_resources(resources: list[ResourceInstance], console: Console):
-    pad = max([len(resource.metadata.name) for resource in resources])
-    for resource in resources:
-        ns = resource.metadata.namespace
-        console.print(
-            f"Resource [purple]{resource.metadata.name:<{pad}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
+        parser.add_argument(
+            "--apps",
+            nargs="+",
+            help="the apps to apply. If supplied, unnamed apps will always be skipped",
         )
 
+        parser.add_argument(
+            "--context",
+            default="minikube",
+            type=str,
+            help="the Kubernetes context to use. Defaults to minikube",
+        )
+        # parser.add_argument(
+        #     "--kube-config-file",
+        #     default=None,
+        #     type=str,
+        #     help="the path to a kubeconfig file",
+        # )
+        parser.add_argument(
+            "--verbose", action="store_true", help="enable verbose output"
+        )
+        parser.add_argument(
+            "--unattended",
+            action="store_true",
+            help="enable unattended mode. This will not prompt for confirmation before applying",
+        )
+        return parser.parse_args()
 
-def cdk8s_cli(
-    app: App,
-    name: Optional[str] = None,
-    kube_context: str = "minikube",
-    k8s_client: Optional[client.ApiClient] = None,
-    verbose: bool = False,
-):
-    args = _parse_args()
-    console = Console()
-    if args.apps and name not in args.apps:
-        console.print(f"[yellow]Skipping {'app '+name if name else 'unnamed app'}.[/]")
-        return
-    output_dir = Path(Path.cwd(), app.outdir).resolve()
+    def _del_dir(self, path: Path):
+        for p in path.iterdir():
+            if p.is_dir():
+                self._del_dir(p)
+                p.rmdir()
+            else:
+                p.unlink()
 
-    if args.action == "synth":
-        _synth_app(app, console, name, output_dir)
+    def _get_resource(self, client: DynamicClient, resource):
+        if self.verbose:
+            details = {
+                "name": resource.metadata.name,
+                "kind": resource.kind,
+                "namespace": resource.metadata.namespace,
+            }
+            self.console.log(f"Getting resource: {details}")
+        resource_type = client.resources.get(
+            api_version=resource.api_version,
+            kind=resource.kind,
+        )
+        return resource_type.get(
+            name=resource.metadata.name,
+            namespace=resource.metadata.namespace,
+        )
 
-    if args.action == "apply":
-        _del_dir(output_dir)
-        _synth_app(app, console, name, output_dir)
-
-        if not args.unattended:
-            if console.input(
-                f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
-            ).lower() not in ["y", "yes"]:
-                console.print("[yellow]Skipping.[/]")
-                return
-
-        if not k8s_client:
-            config.load_kube_config(context=kube_context)
-            k8s_client = client.ApiClient()
-
-        resources = list()
+    def _synth_app(self, app: App, name: str, output_dir: Path) -> None:
         try:
-            response = create_from_directory(
-                k8s_client=k8s_client,
-                yaml_dir=output_dir,
-                verbose=args.verbose or verbose,
-                namespace=None,
-                apply=True,
+            with self.console.status("Synthing resources..."):
+                app.synth()
+            self.console.print(
+                f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
             )
-            resources: list[ResourceInstance] = list(
-                collapse(response, base_type=ResourceInstance)
+        except Exception as e:
+            self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
+            exit(1)
+
+    def _print_resources(self, resources: list[ResourceInstance]) -> None:
+        """
+        Prints the resources that were applied to the Kubernetes cluster using the Rich console.
+        """
+        name_pad = max(
+            [
+                len(f"{resource.metadata.name} ({resource.kind})")
+                for resource in resources
+            ]
+        )
+        for resource in resources:
+            ns = resource.metadata.namespace
+            self.console.print(
+                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{name_pad}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
             )
 
-        except FailToCreateError as e:
-            for error in e.api_exceptions:
-                body = loads(error.body)
-                console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
-                exit(body["code"])
+    def _resource_is_healthy(self, resource: ResourceInstance) -> bool:
+        status = resource.status
+        if self.verbose:
+            self.console.log(f"Resource {resource.metadata.name} status: {status}")
 
-        _print_resources(resources, console)
+        # No status is good status
+        if not status:
+            return True
 
-        # dynamic_client = DynamicClient(k8s_client)
-        # with console.status(
-        #     "Waiting for successful deployment...",
-        #     spinner="dots",
-        # ):
-        #     for resource in resources:
-        #         while status := _get_resource(dynamic_client, resource)["status"][
-        #             "succeeded"
-        #         ]:
-        #             print(status)
-        #             sleep(1)
-        #         console.print(
-        #             f"Resource [purple]{resource.metadata.name}[/purple] is ready."
-        #         )
-        console.print("[green]Apply complete[/green]")
+        if not status.conditions:
+            return True
+        good_conditions = ["Ready", "Succeeded", "Available"]
+        for condition in status.conditions:
+            if condition.type in good_conditions and condition.status == "True":
+                return True
+
+        return False
+
+    def _get_resource_ready_status(
+        self,
+        resources: list[ResourceInstance],
+        client: DynamicClient,
+    ) -> dict[str, bool]:
+        readiness: dict[str, bool] = {
+            resource.metadata.name: False for resource in resources
+        }
+        for resource in resources:
+            resource = self._get_resource(client, resource)
+            healthy = self._resource_is_healthy(resource)
+            if self.verbose:
+                self.console.print(
+                    f"Resource {resource.metadata.name} is healthy: {healthy}"
+                )
+            if healthy:
+                readiness[resource.metadata.name] = True
+                self.console.print(
+                    f"Resource [purple]{resource.metadata.name}[/purple] is [green]ready[/]."
+                )
+        return readiness
