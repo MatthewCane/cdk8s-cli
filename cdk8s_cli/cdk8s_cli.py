@@ -17,17 +17,26 @@ class cdk8s_cli:
         app: App,
         name: Optional[str] = None,
         kube_context: str = "minikube",
+        kube_config_file: Optional[str] = None,
         k8s_client: Optional[client.ApiClient] = None,
         verbose: bool = False,
     ):
         self.args = self._parse_args()
 
+        # Override argument values if CLI values are supplied
+        self.args.verbose = self.args.verbose or verbose
+        self.args.kube_context = self.args.kube_context or kube_context
+
         self.console = Console()
+
+        # If the user has supplied a list of apps to apply, skip unnamed apps
         if self.args.apps and name not in self.args.apps:
             self.console.print(
                 f"[yellow]Skipping {'app '+name if name else 'unnamed app'}.[/]"
             )
             return
+
+        # Resolve the full output directory path
         output_dir = Path(Path.cwd(), app.outdir).resolve()
 
         if self.args.action == "synth":
@@ -44,8 +53,11 @@ class cdk8s_cli:
                     self.console.print("[yellow]Skipping.[/]")
                     return
 
+            # If a k8s client is not supplied, load the kubeconfig file
             if not k8s_client:
-                config.load_kube_config(context=kube_context)
+                config.load_kube_config(
+                    config_file=kube_config_file, context=kube_context
+                )
                 k8s_client = client.ApiClient()
 
             resources = list()
@@ -104,17 +116,17 @@ class cdk8s_cli:
         )
 
         parser.add_argument(
-            "--context",
+            "--kube-context",
             default="minikube",
             type=str,
             help="the Kubernetes context to use. Defaults to minikube",
         )
-        # parser.add_argument(
-        #     "--kube-config-file",
-        #     default=None,
-        #     type=str,
-        #     help="the path to a kubeconfig file",
-        # )
+        parser.add_argument(
+            "--kube-config-file",
+            default=None,
+            type=str,
+            help="the path to a kubeconfig file",
+        )
         parser.add_argument(
             "--verbose", action="store_true", help="enable verbose output"
         )
@@ -126,6 +138,9 @@ class cdk8s_cli:
         return parser.parse_args()
 
     def _del_dir(self, path: Path):
+        """
+        Empty a directory by deleting all files and directories within it.
+        """
         for p in path.iterdir():
             if p.is_dir():
                 self._del_dir(p)
@@ -150,16 +165,18 @@ class cdk8s_cli:
             namespace=resource.metadata.namespace,
         )
 
-    def _synth_app(self, app: App, name: str, output_dir: Path) -> None:
-        try:
-            with self.console.status("Synthing resources..."):
+    def _synth_app(self, app: App, name: Optional[str], output_dir: Path) -> None:
+        with self.console.status(
+            f"Synthing app{' for app [purple]' + name + '[/purple]' if name else '' }..."
+        ):
+            try:
                 app.synth()
-            self.console.print(
-                f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
-            )
-        except Exception as e:
-            self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
-            exit(1)
+                self.console.print(
+                    f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
+                )
+            except Exception as e:
+                self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
+                exit(1)
 
     def _print_resources(self, resources: list[ResourceInstance]) -> None:
         """
