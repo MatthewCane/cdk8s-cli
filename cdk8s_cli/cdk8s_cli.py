@@ -82,10 +82,10 @@ class cdk8s_cli:
                 self.console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
                 exit(body["code"])
 
-        self._print_resources(resources)
+        self._print_resources_applied(resources)
 
         self.console.print("[green]Apply complete[/green]")
-        return
+        # return
         # The following status check code requires more work to be functional
         dynamic_client = DynamicClient(k8s_client)
         readiness = self._get_resource_ready_status(resources, dynamic_client)
@@ -139,6 +139,11 @@ class cdk8s_cli:
             action="store_true",
             help="enable unattended mode. This will not prompt for confirmation before applying",
         )
+        parser.add_argument(
+            "--debug",
+            action="store_true",
+            help="enable debug mode. This will print debug information",
+        )
         return parser.parse_args()
 
     def _del_dir(self, path: Path):
@@ -153,7 +158,7 @@ class cdk8s_cli:
                 p.unlink()
 
     def _get_resource(self, client: DynamicClient, resource):
-        if self.args.verbose:
+        if self.args.debug:
             details = {
                 "name": resource.metadata.name,
                 "kind": resource.kind,
@@ -182,27 +187,51 @@ class cdk8s_cli:
                 self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
                 exit(1)
 
-    def _print_resources(self, resources: list[ResourceInstance]) -> None:
+    def _get_padding(self, resources: list[ResourceInstance]) -> int:
         """
-        Prints the resources that were applied to the Kubernetes cluster using the Rich console.
+        Get the padding required to align the resource names in the Rich console.
         """
-        name_pad = max(
+        return max(
             [
                 len(f"{resource.metadata.name} ({resource.kind})")
                 for resource in resources
             ]
         )
+
+    def _print_resources_applied(
+        self,
+        resources: list[ResourceInstance],
+    ) -> None:
+        """
+        Prints the resources that were applied to the Kubernetes cluster using the Rich console.
+        """
+        padding = self._get_padding(resources)
         for resource in resources:
             ns = resource.metadata.namespace
             self.console.print(
-                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{name_pad}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
+                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{padding}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
+            )
+            if self.args.verbose:
+                self.console.print("[bold]Verbose resource details:[/]\n", resource)
+
+    def _print_resources_ready(
+        self,
+        resources: list[ResourceInstance],
+    ) -> None:
+        """
+        Prints the resources that were applied to the Kubernetes cluster using the Rich console.
+        """
+        padding = self._get_padding(resources)
+        for resource in resources:
+            self.console.print(
+                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{padding}}[/purple] is [green]ready[/]."
             )
             if self.args.verbose:
                 self.console.print("[bold]Verbose resource details:[/]\n", resource)
 
     def _resource_is_healthy(self, resource: ResourceInstance) -> bool:
         status = resource.status
-        if self.args.verbose:
+        if self.args.debug:
             self.console.log(f"Resource {resource.metadata.name} status: {status}")
 
         # No status is good status
@@ -229,13 +258,10 @@ class cdk8s_cli:
         for resource in resources:
             resource = self._get_resource(client, resource)
             healthy = self._resource_is_healthy(resource)
-            if self.args.verbose:
-                self.console.print(
-                    f"Resource {resource.metadata.name} is healthy: {healthy}"
-                )
+            if self.args.debug:
+                self.console.log(f"Resource {resource.metadata.name} health: {healthy}")
             if healthy:
-                readiness[resource.metadata.name] = True
-                self.console.print(
-                    f"Resource [purple]{resource.metadata.name}[/purple] is [green]ready[/]."
-                )
+                if not readiness[resource.metadata.name]:
+                    readiness[resource.metadata.name] = True
+                    # self._print_resources_ready([resource])
         return readiness
