@@ -43,64 +43,64 @@ class cdk8s_cli:
             self._synth_app(app, name, output_dir)
 
         if self.args.action == "apply":
-            self._del_dir(output_dir)
-            self._synth_app(app, name, output_dir)
+            self._apply(app, name, output_dir)
 
-            if not self.args.unattended:
-                if self.console.input(
-                    f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
-                ).lower() not in ["y", "yes"]:
-                    self.console.print("[yellow]Skipping.[/]")
-                    return
+    def _apply(self, app, name, output_dir, k8s_client=None):
+        self._del_dir(output_dir)
+        self._synth_app(app, name, output_dir)
 
-            # If a k8s client is not supplied, load the kubeconfig file
-            if not k8s_client:
-                config.load_kube_config(
-                    config_file=kube_config_file, context=kube_context
+        if not self.args.unattended:
+            if self.console.input(
+                f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
+            ).lower() not in ["y", "yes"]:
+                self.console.print("[yellow]Skipping.[/]")
+                return
+
+        # If a k8s client is not supplied, load the kubeconfig file
+        if not k8s_client:
+            config.load_kube_config(
+                config_file=self.args.kube_config_file, context=self.args.kube_context
+            )
+            k8s_client = client.ApiClient()
+
+        resources = list()
+        try:
+            with self.console.status("Applying resources..."):
+                response = create_from_directory(
+                    k8s_client=k8s_client,
+                    yaml_dir=output_dir,
+                    apply=True,
+                    namespace=None,
                 )
-                k8s_client = client.ApiClient()
-
-            resources = list()
-            try:
-                with self.console.status("Applying resources..."):
-                    response = create_from_directory(
-                        k8s_client=k8s_client,
-                        yaml_dir=output_dir,
-                        verbose=self.args.verbose or verbose,
-                        apply=True,
-                        namespace=None,
-                    )
-                    resources: list[ResourceInstance] = list(
-                        collapse(response, base_type=ResourceInstance)
-                    )
-
-            except FailToCreateError as e:
-                for error in e.api_exceptions:
-                    body = loads(error.body)
-                    self.console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
-                    exit(body["code"])
-
-            self._print_resources(resources)
-
-            self.console.print("[green]Apply complete[/green]")
-            return
-            # The following status check code requires more work to be functional
-            dynamic_client = DynamicClient(k8s_client)
-            readiness = self._get_resource_ready_status(resources, dynamic_client)
-            with self.console.status(
-                status="Waiting for reasources to report ready...\n"
-                + "\n".join(
-                    [
-                        f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
-                        for k, v in readiness.items()
-                    ]
+                resources: list[ResourceInstance] = list(
+                    collapse(response, base_type=ResourceInstance)
                 )
-            ):
-                while not all(readiness.values()):
-                    readiness = self._get_resource_ready_status(
-                        resources, dynamic_client
-                    )
-                    sleep(1)
+
+        except FailToCreateError as e:
+            for error in e.api_exceptions:
+                body = loads(error.body)
+                self.console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
+                exit(body["code"])
+
+        self._print_resources(resources)
+
+        self.console.print("[green]Apply complete[/green]")
+        return
+        # The following status check code requires more work to be functional
+        dynamic_client = DynamicClient(k8s_client)
+        readiness = self._get_resource_ready_status(resources, dynamic_client)
+        with self.console.status(
+            status="Waiting for reasources to report ready...\n"
+            + "\n".join(
+                [
+                    f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
+                    for k, v in readiness.items()
+                ]
+            )
+        ):
+            while not all(readiness.values()):
+                readiness = self._get_resource_ready_status(resources, dynamic_client)
+                sleep(1)
 
     def _parse_args(self) -> Namespace:
         """
@@ -197,6 +197,8 @@ class cdk8s_cli:
             self.console.print(
                 f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{name_pad}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
             )
+            if self.args.verbose:
+                self.console.print("[bold]Verbose resource details:[/]\n", resource)
 
     def _resource_is_healthy(self, resource: ResourceInstance) -> bool:
         status = resource.status
