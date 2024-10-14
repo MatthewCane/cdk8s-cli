@@ -105,3 +105,9 @@ A very basic example containing a chart with a few simple resources in a single 
 [Link](examples/complex)
 
 A more complex example with multiple charts and multiple stages.
+
+### Jobs Example
+
+[Link](examples/jobs)
+
+An example job runner that executes Python scripts from a directory of scripts as jobs.
