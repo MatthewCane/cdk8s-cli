@@ -14,5 +14,6 @@ class RedisConfig:
             "auth": {
                 "enabled": False,
             },
+            "architecture": "standalone",
         }
     )
