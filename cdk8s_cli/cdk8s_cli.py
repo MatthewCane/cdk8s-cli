@@ -27,6 +27,9 @@ class cdk8s_cli:
     ) -> Optional[list[ResourceInstance]]:
         """Triggers the CLI for the supplied CDK8s app.
 
+        Many of these values can be overridden using the CLI arguments.
+        You can run the CLI with `--help` to see the available options.
+
         Args:
             app (App): The CDK8s app to apply.
             name (Optional[str]): The name of the app. Defaults to None.
@@ -64,7 +67,7 @@ class cdk8s_cli:
             self._synth_app(app, name, output_dir)
 
         if self.args.action == "apply":
-            self._apply(app, name, output_dir, k8s_client, kube_config_file)
+            return self._apply(app, name, output_dir, k8s_client, kube_config_file)
 
     def _apply(
         self,
@@ -202,7 +205,7 @@ class cdk8s_cli:
         )
         return parser.parse_args()
 
-    def _del_dir(self, path: Path):
+    def _del_dir(self, path: Path) -> None:
         """
         Empty a directory by deleting all files and directories within it.
         """
