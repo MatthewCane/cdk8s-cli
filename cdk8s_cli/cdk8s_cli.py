@@ -1,6 +1,7 @@
 from cdk8s import App, Duration
 from pathlib import Path
-from kubernetes import client, config, KUBE_CONFIG_DEFAULT_LOCATION
+from kubernetes import client, config
+from kubernetes.config import KUBE_CONFIG_DEFAULT_LOCATION
 from kubernetes.dynamic import ResourceInstance, DynamicClient
 from kubernetes.utils import create_from_directory, FailToCreateError
 from json import loads
