@@ -15,9 +15,13 @@ This project provides a simple CLI to help with applying cdk8s charts.
 from cdk8s_cli.cdk8s_cli import cdk8s_cli
 from cdk8s import App, Chart
 
+class ApplicationChart(Chart):
+  # Define cdk8s chart here
+  ...
+
 # Construct your Apps and charts as you normally would:
 app = App()
-ApplicationChart(app, "simple-cdk8s-chart")
+ApplicationChart(app, "chart-name")
 
 # Then call the CLI with:
 cdk8s_cli(app)
@@ -59,10 +63,6 @@ python3 main.py deploy --apps dev prod
 ### Options
 
 ```text
-usage: complex.py [-h] [--apps APPS [APPS ...]] [--context CONTEXT] [--verbose] [--unattended] {synth,apply}
-
-A CLI for deploying CDK8s apps.
-
 positional arguments:
   {synth,apply}         the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster
 
@@ -70,9 +70,16 @@ options:
   -h, --help            show this help message and exit
   --apps APPS [APPS ...]
                         the apps to apply. If supplied, unnamed apps will always be skipped
-  --context CONTEXT     the Kubernetes context to use. Defaults to minikube
+  --kube-context KUBE_CONTEXT
+                        the Kubernetes context to use. Defaults to minikube
+  --kube-config-file KUBE_CONFIG_FILE
+                        the path to a kubeconfig file
   --verbose             enable verbose output
   --unattended          enable unattended mode. This will not prompt for confirmation before applying
+  --debug               enable debug mode. This will print debug information
+  --validate            experimental feature. Will enable validation mode. This will wait for resources to report ready before exiting
+  --validate-timeout-minutes VALIDATE_TIMEOUT_MINUTES
+                        the number of minutes to wait for resources to report ready before timing out. Needs --validate to be set
 ```
 
 ## Development
