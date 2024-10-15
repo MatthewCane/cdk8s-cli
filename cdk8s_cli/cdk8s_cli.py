@@ -1,6 +1,6 @@
 from cdk8s import App, Duration
 from pathlib import Path
-from kubernetes import client, config
+from kubernetes import client, config, KUBE_CONFIG_DEFAULT_LOCATION
 from kubernetes.dynamic import ResourceInstance, DynamicClient
 from kubernetes.utils import create_from_directory, FailToCreateError
 from json import loads
@@ -11,16 +11,37 @@ from argparse import ArgumentParser, Namespace
 from time import sleep, time
 
 
+class FailToSynthError(Exception):
+    pass
+
+
 class cdk8s_cli:
     def __init__(
         self,
         app: App,
         name: Optional[str] = None,
-        kube_context: str = "minikube",
-        kube_config_file: Optional[str] = None,
+        kube_context: Optional[str] = "minikube",
+        kube_config_file: Optional[str] = KUBE_CONFIG_DEFAULT_LOCATION,
         k8s_client: Optional[client.ApiClient] = None,
-        verbose: bool = False,
-    ):
+        verbose: Optional[bool] = False,
+    ) -> Optional[list[ResourceInstance]]:
+        """Triggers the CLI for the supplied CDK8s app.
+
+        Args:
+            app (App): The CDK8s app to apply.
+            name (Optional[str]): The name of the app. Defaults to None.
+            kube_context (Optional[str]): The Kubernetes context to use. Defaults to "minikube".
+            kube_config_file (Optional[str]): The path to a kubeconfig file. Defaults to using the default kube config location OR use the KUBECONFIG environment variable.
+            k8s_client (Optional[client.ApiClient]): A Kubernetes client to use. If not supplied, one will be created using the kube_config_file and context arguments.
+            verbose (Optional[bool]): Enable verbose output. Defaults to False.
+
+        Returns:
+            Optional[list[ResourceInstance]]: A list of resources that were applied to the Kubernetes cluster. This is only returned if the action is "apply", else None.
+
+        Raises:
+            FailToCreateError: If there is an error creating the resources.
+            FailToSynthError: If there is an error synthing the resources.
+        """
         self.args = self._parse_args()
 
         # Override argument values if CLI values are supplied
@@ -43,9 +64,15 @@ class cdk8s_cli:
             self._synth_app(app, name, output_dir)
 
         if self.args.action == "apply":
-            self._apply(app, name, output_dir)
+            self._apply(app, name, output_dir, k8s_client, kube_config_file)
 
-    def _apply(self, app, name, output_dir, k8s_client=None):
+    def _apply(
+        self,
+        app: App,
+        name: Optional[str],
+        output_dir: str,
+        k8s_client: Optional[client.ApiClient],
+    ):
         self._del_dir(output_dir)
         self._synth_app(app, name, output_dir)
 
@@ -80,7 +107,7 @@ class cdk8s_cli:
             for error in e.api_exceptions:
                 body = loads(error.body)
                 self.console.print("[red]ERROR DEPLOYING RESOURCES[/red]:", body)
-                exit(body["code"])
+            raise e
 
         self._print_resources_applied(resources)
 
@@ -88,6 +115,7 @@ class cdk8s_cli:
             # The status check code is buggy and may not work with all resources
             self.console.print("[yellow]Warning: Validation mode is experimental.[/]")
             dynamic_client = DynamicClient(k8s_client)
+            sleep
             readiness = self._get_resource_ready_status(resources, dynamic_client)
             TIMEOUT = Duration.minutes(self.args.validate_timeout_minutes)
             if self.args.debug:
@@ -116,9 +144,10 @@ class cdk8s_cli:
                             self.console.print(
                                 "Timed out after waiting for", TIMEOUT.to_human_string()
                             )
-                        return
+                        return resources
 
         self.console.print("[green]Apply complete[/green]")
+        return resources
 
     def _parse_args(self) -> Namespace:
         """
@@ -130,13 +159,11 @@ class cdk8s_cli:
             choices=["synth", "apply"],
             help="the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster",
         )
-
         parser.add_argument(
             "--apps",
             nargs="+",
             help="the apps to apply. If supplied, unnamed apps will always be skipped",
         )
-
         parser.add_argument(
             "--kube-context",
             default="minikube",
@@ -214,7 +241,7 @@ class cdk8s_cli:
                 )
             except Exception as e:
                 self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
-                exit(1)
+                raise FailToSynthError(e)
 
     def _get_padding(self, resources: list[ResourceInstance]) -> int:
         """
