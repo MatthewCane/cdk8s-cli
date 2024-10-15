@@ -25,7 +25,7 @@ class cdk8s_cli:
         kube_config_file: Optional[str] = KUBE_CONFIG_DEFAULT_LOCATION,
         k8s_client: Optional[client.ApiClient] = None,
         verbose: Optional[bool] = False,
-    ) -> Optional[list[ResourceInstance]]:
+    ) -> None:
         """Triggers the CLI for the supplied CDK8s app.
 
         Many of these values can be overridden using the CLI arguments.
@@ -40,7 +40,7 @@ class cdk8s_cli:
             verbose (Optional[bool]): Enable verbose output. Defaults to False.
 
         Returns:
-            Optional[list[ResourceInstance]]: A list of resources that were applied to the Kubernetes cluster. This is only returned if the action is "apply", else None.
+            None
 
         Raises:
             FailToCreateError: If there is an error creating the resources.
@@ -68,7 +68,7 @@ class cdk8s_cli:
             self._synth_app(app, name, output_dir)
 
         if self.args.action == "apply":
-            return self._apply(app, name, output_dir, k8s_client, kube_config_file)
+            self.resources = self._apply(app, name, output_dir, k8s_client)
 
     def _apply(
         self,
@@ -149,6 +149,8 @@ class cdk8s_cli:
                                 "Timed out after waiting for", TIMEOUT.to_human_string()
                             )
                         return resources
+
+                self.console.print("[green]All resources are ready.[/]")
 
         self.console.print("[green]Apply complete[/green]")
         return resources
