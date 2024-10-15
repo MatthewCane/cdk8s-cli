@@ -1,4 +1,4 @@
-from cdk8s import App
+from cdk8s import App, Duration
 from pathlib import Path
 from kubernetes import client, config
 from kubernetes.dynamic import ResourceInstance, DynamicClient
@@ -8,7 +8,7 @@ from rich.console import Console
 from more_itertools import collapse
 from typing import Optional
 from argparse import ArgumentParser, Namespace
-from time import sleep
+from time import sleep, time
 
 
 class cdk8s_cli:
@@ -24,7 +24,7 @@ class cdk8s_cli:
         self.args = self._parse_args()
 
         # Override argument values if CLI values are supplied
-        self.args.verbose = self.args.verbose or verbose
+        self.args.verbose = self.args.verbose or verbose or self.args.debug
         self.args.kube_context = self.args.kube_context or kube_context
 
         self.console = Console()
@@ -84,23 +84,41 @@ class cdk8s_cli:
 
         self._print_resources_applied(resources)
 
+        if self.args.validate:
+            # The status check code is buggy and may not work with all resources
+            self.console.print("[yellow]Warning: Validation mode is experimental.[/]")
+            dynamic_client = DynamicClient(k8s_client)
+            readiness = self._get_resource_ready_status(resources, dynamic_client)
+            TIMEOUT = Duration.minutes(self.args.validate_timeout_minutes)
+            if self.args.debug:
+                self.console.log("Timeout:", TIMEOUT.to_human_string())
+            start_time = time()
+
+            with self.console.status(
+                status="Waiting for reasources to report ready...\n"
+                + "\n".join(
+                    [
+                        f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
+                        for k, v in readiness.items()
+                    ]
+                )
+            ):
+                while not all(readiness.values()):
+                    sleep(1)
+                    readiness = self._get_resource_ready_status(
+                        resources, dynamic_client
+                    )
+                    if time() - start_time > TIMEOUT.to_seconds():
+                        self.console.print(
+                            "[red]Timeout reached. Not all resources are ready.[/]"
+                        )
+                        if self.args.verbose:
+                            self.console.print(
+                                "Timed out after waiting for", TIMEOUT.to_human_string()
+                            )
+                        return
+
         self.console.print("[green]Apply complete[/green]")
-        # return
-        # The following status check code requires more work to be functional
-        dynamic_client = DynamicClient(k8s_client)
-        readiness = self._get_resource_ready_status(resources, dynamic_client)
-        with self.console.status(
-            status="Waiting for reasources to report ready...\n"
-            + "\n".join(
-                [
-                    f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
-                    for k, v in readiness.items()
-                ]
-            )
-        ):
-            while not all(readiness.values()):
-                readiness = self._get_resource_ready_status(resources, dynamic_client)
-                sleep(1)
 
     def _parse_args(self) -> Namespace:
         """
@@ -143,6 +161,17 @@ class cdk8s_cli:
             "--debug",
             action="store_true",
             help="enable debug mode. This will print debug information",
+        )
+        parser.add_argument(
+            "--validate",
+            action="store_true",
+            help="experimental feature. Will enable validation mode. This will wait for resources to report ready before exiting",
+        )
+        parser.add_argument(
+            "--validate-timeout-minutes",
+            type=int,
+            default=3,
+            help="the number of minutes to wait for resources to report ready before timing out. Needs --validate to be set",
         )
         return parser.parse_args()
 
