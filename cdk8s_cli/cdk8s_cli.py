@@ -125,12 +125,13 @@ class cdk8s_cli:
             if self.args.debug:
                 self.console.log("Timeout:", TIMEOUT.to_human_string())
             start_time = time()
+            padding = self._get_padding(resources)
 
             with self.console.status(
-                status="Waiting for reasources to report ready...\n"
-                + "\n".join(
+                status="Waiting for reasources to report ready...\n  "
+                + "\n  ".join(
                     [
-                        f"[purple]{k}[/]: {'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
+                        f"[purple]{k+'[/]':{'.'}<{padding}}{'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
                         for k, v in readiness.items()
                     ]
                 )
@@ -314,6 +315,12 @@ class cdk8s_cli:
         resources: list[ResourceInstance],
         client: DynamicClient,
     ) -> dict[str, bool]:
+        """
+        Returns a dictionary of resources and their readiness status in the form of {resource_name: is_ready}.
+        """
+        # ToDo: Refactor to use a list of resource objects so the resource type and namespace
+        # can be printed in the console to make it easier to see what resources are being checked
+        # and where they can be found in the cluster.
         readiness: dict[str, bool] = {
             resource.metadata.name: False for resource in resources
         }
