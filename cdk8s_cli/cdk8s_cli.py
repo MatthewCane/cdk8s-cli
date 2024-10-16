@@ -1,15 +1,17 @@
-from cdk8s import App, Duration
+from argparse import ArgumentParser, Namespace
+from json import loads
 from pathlib import Path
+from time import sleep, time
+from typing import Optional
+
+from cdk8s import App, Duration
 from kubernetes import client, config
 from kubernetes.config import KUBE_CONFIG_DEFAULT_LOCATION
-from kubernetes.dynamic import ResourceInstance, DynamicClient
-from kubernetes.utils import create_from_directory, FailToCreateError
-from json import loads
-from rich.console import Console
+from kubernetes.dynamic import DynamicClient, ResourceInstance
+from kubernetes.utils import FailToCreateError, create_from_directory
 from more_itertools import collapse
-from typing import Optional
-from argparse import ArgumentParser, Namespace
-from time import sleep, time
+from rich.console import Console
+from yaml import load_all, SafeLoader
 
 
 class FailToSynthError(Exception):
@@ -67,8 +69,52 @@ class cdk8s_cli:
         if self.args.action == "synth":
             self._synth_app(app, name, output_dir)
 
+        if self.args.action == "list":
+            self._list(app, name)
+
+        if self.args.action == "diff":
+            self._diff(app, name)
+
         if self.args.action == "apply":
             self.resources = self._apply(app, name, output_dir, k8s_client)
+
+    def _list(self, app: App, name: Optional[str]):
+        # This is a very basic implementation and will need to be improved
+        manifests = list(load_all(app.synth_yaml(), Loader=SafeLoader))
+        self.console.print(
+            f"Resources for app{' [purple]' + name + '[/purple]' if name else ''}:"
+        )
+        if self.args.debug:
+            self.console.log("Manifests:", manifests)
+        manifest_count = len(manifests)
+        for n, manifest in enumerate(manifests):
+            connector = "├──" if n < manifest_count - 1 else "└──"
+            pipe = "│" if n < manifest_count - 1 else " "
+            ns = manifest.get("metadata", {}).get("namespace", None)
+
+            self.console.print(f"{connector} [purple]{manifest['metadata']['name']}[/]")
+            self.console.print(f"{pipe}   ├── Kind: {manifest['kind']}")
+
+            if ns:
+                self.console.print(f"{pipe}   ├── Namespace: {ns}")
+
+            if manifest["kind"] in ["Deployment", "StatefulSet"]:
+                self.console.print(
+                    f"{pipe}   ├── Replicas: {manifest['spec']['replicas']}"
+                )
+
+            if manifest["kind"] in ["Service"]:
+                self.console.print(f"{pipe}   ├── Type: {manifest['spec']['type']}")
+                self.console.print(
+                    f"{pipe}   ├── Ports: {', '.join([str(port['port']) for port in manifest['spec']['ports']])}"
+                )
+
+            # Leave this to last so the pipes match up without having to use
+            # a conditional for the last item
+            self.console.print(f"{pipe}   └── API Version: {manifest['apiVersion']}")
+
+    def _diff(self, app: App, name: Optional[str]):
+        raise NotImplementedError
 
     def _apply(
         self,
@@ -126,7 +172,7 @@ class cdk8s_cli:
                 self.console.log("Timeout:", TIMEOUT.to_human_string())
             start_time = time()
             padding = self._get_padding(resources)
-
+            # The whole proceeding status check context is very hard to read, needs to be refactored.
             with self.console.status(
                 status="Waiting for reasources to report ready...\n  "
                 + "\n  ".join(
@@ -163,7 +209,7 @@ class cdk8s_cli:
         parser = ArgumentParser(description="A CLI for deploying CDK8s apps.")
         parser.add_argument(
             "action",
-            choices=["synth", "apply"],
+            choices=["synth", "apply", "list"],
             help="the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster",
         )
         parser.add_argument(

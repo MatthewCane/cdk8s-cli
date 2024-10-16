@@ -37,7 +37,6 @@ Resource simple-cdk8s-chart-c81aeaa7                    applied.
 Resource simple-cdk8s-chart-deployment-c83ea641         applied in namespace simple-cdk8s-chart-c81aeaa7.
 Resource simple-cdk8s-chart-deployment-service-c8f17013 applied in namespace simple-cdk8s-chart-c81aeaa7.
 Apply complete
-
 ```
 
 ### Example CLI Usage
@@ -93,9 +92,17 @@ This project is built using:
 
 - [ ] Unit tests
 - [ ] End-to-end tests
+  - Use the example projects for this
 - [ ] Complete documentation
 - [ ] Improve customisation
+  - More inputs, more flexability
 - [ ] Diff functionality
+  - Similar to `kubectl diff`
+- [ ] Destroy functionality
+  - Similar to `kubectl delete`
+- [x] List functionality
+  - List all resources in an app
+  - Useful, hierarchical view
 
 ## Examples
 
