@@ -9,7 +9,7 @@ packages = [{include = "cdk8s_cli"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 cdk8s-plus-30 = "^2.2.5"
-kubernetes = { git = "https://github.com/kubernetes-client/python" }
+kubernetes = "^31.0.0"
 rich = "^13.9.1"
 ruff = "^0.6.8"
 pyyaml = "^6.0.2"

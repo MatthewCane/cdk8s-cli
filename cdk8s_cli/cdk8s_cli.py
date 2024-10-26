@@ -11,7 +11,7 @@ from kubernetes.dynamic import DynamicClient, ResourceInstance
 from kubernetes.utils import FailToCreateError, create_from_directory
 from more_itertools import collapse
 from rich.console import Console
-from yaml import load_all, SafeLoader
+from yaml import SafeLoader, load_all
 
 
 class FailToSynthError(Exception):
@@ -87,6 +87,7 @@ class cdk8s_cli:
         if self.args.debug:
             self.console.log("Manifests:", manifests)
         manifest_count = len(manifests)
+
         for n, manifest in enumerate(manifests):
             connector = "├──" if n < manifest_count - 1 else "└──"
             pipe = "│" if n < manifest_count - 1 else " "
