@@ -8,13 +8,13 @@ packages = [{include = "cdk8s_cli"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-cdk8s-plus-30 = "^2.2.5"
 kubernetes = "^32.0.0"
 rich = "^13.9.1"
 ruff = "^0.6.8"
 pyyaml = "^6.0.2"
 dictdiffer = "^0.9.0"
 more-itertools = "^10.5.0"
+cdk8s-plus-31 = "^2.1.2"
 
 
 [build-system]

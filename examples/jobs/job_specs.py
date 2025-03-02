@@ -1,4 +1,4 @@
-import cdk8s_plus_30 as kplus
+import cdk8s_plus_31 as kplus
 from cdk8s import Chart, ApiObjectMetadata, Duration
 from constructs import Construct
 

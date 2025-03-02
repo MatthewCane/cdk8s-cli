@@ -1,5 +1,5 @@
 from cdk8s_cli.cdk8s_cli import cdk8s_cli
-import cdk8s_plus_30 as kplus
+import cdk8s_plus_31 as kplus
 from cdk8s import App, Chart, ApiObjectMetadata
 from constructs import Construct
 
