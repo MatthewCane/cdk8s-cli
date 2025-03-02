@@ -1,5 +1,6 @@
 from argparse import ArgumentParser, Namespace
 from json import loads
+from os import environ
 from pathlib import Path
 from time import sleep, time
 from typing import Optional
@@ -8,7 +9,7 @@ from cdk8s import App, Duration
 from kubernetes import client, config
 from kubernetes.config import KUBE_CONFIG_DEFAULT_LOCATION
 from kubernetes.dynamic import DynamicClient, ResourceInstance
-from kubernetes.utils import FailToCreateError, create_from_directory
+from kubernetes.utils import FailToCreateError, create_from_directory  # type: ignore
 from more_itertools import collapse
 from rich.console import Console
 from yaml import SafeLoader, load_all
@@ -59,7 +60,7 @@ class cdk8s_cli:
         # If the user has supplied a list of apps to apply, skip unnamed apps
         if self.args.apps and name not in self.args.apps:
             self.console.print(
-                f"[yellow]Skipping {'app '+name if name else 'unnamed app'}.[/]"
+                f"[yellow]Skipping {'app ' + name if name else 'unnamed app'}.[/]"
             )
             return
 
@@ -121,7 +122,7 @@ class cdk8s_cli:
         self,
         app: App,
         name: Optional[str],
-        output_dir: str,
+        output_dir: Path,
         k8s_client: Optional[client.ApiClient],
     ):
         self._del_dir(output_dir)
@@ -129,7 +130,7 @@ class cdk8s_cli:
 
         if not self.args.unattended:
             if self.console.input(
-                f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else '' }? [bold]\\[y/N][/]: "
+                f"Deploy resources{' for app [purple]' + name + '[/purple]' if name else ''}? [bold]\\[y/N][/]: "
             ).lower() not in ["y", "yes"]:
                 self.console.print("[yellow]Skipping.[/]")
                 return
@@ -141,7 +142,7 @@ class cdk8s_cli:
             )
             k8s_client = client.ApiClient()
 
-        resources = list()
+        resources: list[ResourceInstance] = list()
         try:
             with self.console.status("Applying resources..."):
                 response = create_from_directory(
@@ -150,9 +151,7 @@ class cdk8s_cli:
                     apply=True,
                     namespace=None,
                 )
-                resources: list[ResourceInstance] = list(
-                    collapse(response, base_type=ResourceInstance)
-                )
+                resources = list(collapse(response, base_type=ResourceInstance))
 
         except FailToCreateError as e:
             for error in e.api_exceptions:
@@ -178,7 +177,7 @@ class cdk8s_cli:
                 status="Waiting for reasources to report ready...\n  "
                 + "\n  ".join(
                     [
-                        f"[purple]{k+'[/]':{'.'}<{padding}}{'[green]Ready[/]' if v else "[red]Not Ready[/]"}"
+                        f"[purple]{k + '[/]':{'.'}<{padding}}{'[green]Ready[/]' if v else '[red]Not Ready[/]'}"
                         for k, v in readiness.items()
                     ]
                 )
@@ -254,6 +253,9 @@ class cdk8s_cli:
             default=3,
             help="the number of minutes to wait for resources to report ready before timing out. Needs --validate to be set",
         )
+        if args := environ.get("TEST_ARGS_OVERRIDE"):
+            # Used to pass arguments to the CLI when running tests
+            return parser.parse_args(args.split(" "))
         return parser.parse_args()
 
     def _del_dir(self, path: Path) -> None:
@@ -286,12 +288,12 @@ class cdk8s_cli:
 
     def _synth_app(self, app: App, name: Optional[str], output_dir: Path) -> None:
         with self.console.status(
-            f"Synthing app{' for app [purple]' + name + '[/purple]' if name else '' }..."
+            f"Synthing app{' for app [purple]' + name + '[/purple]' if name else ''}..."
         ):
             try:
                 app.synth()
                 self.console.print(
-                    f"Resources{' for app [purple]' + name + '[/purple]' if name else '' } synthed to {output_dir}"
+                    f"Resources{' for app [purple]' + name + '[/purple]' if name else ''} synthed to {output_dir}"
                 )
             except Exception as e:
                 self.console.print("[red]ERROR SYNTHING RESOURCES[/red]", e)
@@ -319,7 +321,7 @@ class cdk8s_cli:
         for resource in resources:
             ns = resource.metadata.namespace
             self.console.print(
-                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{padding}}[/purple] applied{ str(' in namespace [purple]'+ns+'[/purple]') if ns else ''}."
+                f"Resource [purple]{f'{resource.metadata.name} ({resource.kind})':<{padding}}[/purple] applied{str(' in namespace [purple]' + ns + '[/purple]') if ns else ''}."
             )
             if self.args.verbose:
                 self.console.print("[bold]Verbose resource details:[/]\n", resource)
@@ -334,7 +336,7 @@ class cdk8s_cli:
         padding = self._get_padding(resources)
         for resource in resources:
             self.console.print(
-                f"Resource [purple]{f"{resource.metadata.name} ({resource.kind})":<{padding}}[/purple] is [green]ready[/]."
+                f"Resource [purple]{f'{resource.metadata.name} ({resource.kind})':<{padding}}[/purple] is [green]ready[/]."
             )
             if self.args.verbose:
                 self.console.print("[bold]Verbose resource details:[/]\n", resource)
