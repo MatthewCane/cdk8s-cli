@@ -1,4 +1,3 @@
-from typing import Optional
 
 import cdk8s_plus_31 as kplus
 from cdk8s import ApiObjectMetadata, App, Chart
