@@ -1,8 +1,9 @@
+from cdk8s import App
 from charts.application import ApplicationChart
 from charts.redis import RedisChart
 from config import ApplicationConfig, RedisConfig
+
 from cdk8s_cli.cdk8s_cli import cdk8s_cli
-from cdk8s import App
 
 
 def main():

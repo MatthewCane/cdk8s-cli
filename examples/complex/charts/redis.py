@@ -1,6 +1,7 @@
-from cdk8s import Chart, Helm
 import cdk8s_plus_31 as kplus
+from cdk8s import Chart, Helm
 from constructs import Construct
+
 from examples.complex.config import RedisConfig
 
 

@@ -1,9 +1,10 @@
-from textwrap import dedent
-from cdk8s_cli.cdk8s_cli import cdk8s_cli
-import cdk8s_plus_31 as kplus
-from cdk8s import App, Chart, ApiObjectMetadata, Duration
-from constructs import Construct
 from pathlib import Path
+
+import cdk8s_plus_31 as kplus
+from cdk8s import ApiObjectMetadata, App, Chart
+from constructs import Construct
+
+from cdk8s_cli.cdk8s_cli import cdk8s_cli
 from examples.jobs.job_specs import BasicJobSpec, PythonJobs
 
 

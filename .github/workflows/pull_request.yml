@@ -1,0 +1,45 @@
+name: Pull Request
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.event.pull_request.number }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: citizensadvice/python-poetry-setup-action@v1
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: start minikube
+        uses: medyagh/setup-minikube@latest
+
+      - name: Run pytest
+        run: poetry run pytest -v
+
+  ruff:
+    name: Ruff and MyPy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: citizensadvice/python-poetry-setup-action@v1
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Run ruff format check
+        run: poetry run ruff format --check
+
+      - name: Run ruff check
+        run: poetry run ruff check
+
+      - name: Run MyPy
+        run: poetry run mypy cdk8s_cli/

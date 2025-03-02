@@ -6,8 +6,8 @@
 # ]
 # ///
 
-import requests
 import polars as pl
+import requests
 
 resp = requests.get("https://peps.python.org/api/peps.json")
 data = resp.json()
