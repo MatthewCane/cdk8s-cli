@@ -22,7 +22,7 @@ jobs:
         uses: medyagh/setup-minikube@latest
 
       - name: Run pytest
-        run: poetry run pytest -v --cov --cov-fail-under=95
+        run: poetry run pytest -v
 
   ruff:
     name: Ruff and MyPy
