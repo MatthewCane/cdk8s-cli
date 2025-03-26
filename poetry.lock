@@ -77,20 +77,20 @@ typeguard = ">=2.13.3,<4.3.0"
 
 [[package]]
 name = "cdk8s-plus-31"
-version = "2.1.4"
+version = "2.1.7"
 description = "cdk8s+ is a software development framework that provides high level abstractions for authoring Kubernetes applications. cdk8s-plus-31 synthesizes Kubernetes manifests for Kubernetes 1.31.0"
 optional = false
 python-versions = "~=3.9"
 groups = ["main"]
 files = [
-    {file = "cdk8s_plus_31-2.1.4-py3-none-any.whl", hash = "sha256:fffed7cbca900fa42bca4668a690326ffa93a57a820a872b65db232464c5046f"},
-    {file = "cdk8s_plus_31-2.1.4.tar.gz", hash = "sha256:124e2f06bb8061124b07ef91d492bcc975d084eb44dc32c19838f4b6d68e933f"},
+    {file = "cdk8s_plus_31-2.1.7-py3-none-any.whl", hash = "sha256:ce92df5213665367bf9c6c4042677184f2c184134e2958e6c0ec7a9743aff933"},
+    {file = "cdk8s_plus_31-2.1.7.tar.gz", hash = "sha256:3dde43aa6ff6f10e68ef0f1abce03101849fe617ee5e083096da5af13a5c87f2"},
 ]
 
 [package.dependencies]
 cdk8s = ">=2.68.11,<3.0.0"
 constructs = ">=10.3.0,<11.0.0"
-jsii = ">=1.109.0,<2.0.0"
+jsii = ">=1.110.0,<2.0.0"
 publication = ">=0.0.3"
 typeguard = ">=2.13.3,<4.3.0"
 
@@ -354,14 +354,14 @@ files = [
 
 [[package]]
 name = "jsii"
-version = "1.109.0"
+version = "1.110.0"
 description = "Python client for jsii runtime"
 optional = false
 python-versions = "~=3.9"
 groups = ["main"]
 files = [
-    {file = "jsii-1.109.0-py3-none-any.whl", hash = "sha256:100bb48c7f74b8e22b3182c5466db1c32565ddb681ed5e2bf556076a734d3f07"},
-    {file = "jsii-1.109.0.tar.gz", hash = "sha256:85e0deca8089e2918776541e986d5abab90a66d4330eedfc14e8a060dd507bad"},
+    {file = "jsii-1.110.0-py3-none-any.whl", hash = "sha256:b46fcc9f6c80e4a3d92c883138194b7311da43b9f954f8473fba8829bb3efaa1"},
+    {file = "jsii-1.110.0.tar.gz", hash = "sha256:d7b323ca66ea9260d210d96b1406671fe399ea62d075ade6374d6bf2b7a5ad33"},
 ]
 
 [package.dependencies]
