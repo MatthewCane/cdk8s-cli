@@ -22,6 +22,15 @@ def _apply(
     k8s_client: Optional[client.ApiClient],
     args: Namespace,
 ) -> None:
+    """Applies the resources for the given app.
+
+    Args:
+        app (App): The app to apply.
+        name (Optional[str]): The name of the app.
+        output_dir (Path): The output directory.
+        k8s_client (Optional[client.ApiClient]): The Kubernetes client.
+        args (Namespace): The arguments passed to the CLI.
+    """
     console = get_console()
     _synth_app(app, name, output_dir)
 

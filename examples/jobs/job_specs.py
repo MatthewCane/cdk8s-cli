@@ -1,5 +1,5 @@
 import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, Chart, Duration
+from cdk8s import ApiObjectMetadata, Chart, Duration, Size
 from constructs import Construct
 
 
@@ -61,6 +61,10 @@ class PythonJobs(Chart):
                     "run",
                     f"/scripts/{name}.py",
                 ],
+                resources=kplus.ContainerResources(
+                    cpu=kplus.CpuResources(limit=kplus.Cpu.millis(250)),
+                    memory=kplus.MemoryResources(limit=Size.mebibytes(256)),
+                ),
                 security_context=kplus.ContainerSecurityContextProps(
                     ensure_non_root=False, read_only_root_filesystem=False
                 ),

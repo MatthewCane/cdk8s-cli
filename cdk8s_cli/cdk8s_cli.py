@@ -11,13 +11,15 @@ from cdk8s_cli.functions.reads.diff import _diff
 from cdk8s_cli.functions.writes.apply import _apply
 from cdk8s_cli.functions.internals.parse_args import _parse_args
 from cdk8s_cli.functions.internals.synth import _synth_app
+from cdk8s_cli.functions.internals.printing import get_console
+from cdk8s_cli.functions.writes.delete import _delete
 
 
 class cdk8s_cli:
     def __init__(
         self,
         app: App,
-        name: Optional[str] = None,
+        name: str,
         kube_context: Optional[str] = "minikube",
         kube_config_file: Optional[str] = KUBE_CONFIG_DEFAULT_LOCATION,
         k8s_client: Optional[client.ApiClient] = None,
@@ -30,7 +32,7 @@ class cdk8s_cli:
 
         Args:
             app (App): The CDK8s app to apply.
-            name (Optional[str]): The name of the app. Defaults to None.
+            name (str): The name of the app.
             kube_context (Optional[str]): The Kubernetes context to use. Defaults to "minikube".
             kube_config_file (Optional[str]): The path to a kubeconfig file. Defaults to using the default kube config location OR use the KUBECONFIG environment variable.
             k8s_client (Optional[client.ApiClient]): A Kubernetes client to use. If not supplied, one will be created using the kube_config_file and context arguments.
@@ -44,16 +46,14 @@ class cdk8s_cli:
             FailToSynthError: If there is an error synthing the resources.
         """
         args = _parse_args()
-
+        console = get_console()
         # Override argument values if CLI values are supplied
         args.verbose = args.verbose or verbose or args.debug
         args.kube_context = args.kube_context or kube_context
 
         # If the user has supplied a list of apps to apply, skip unnamed apps
         if args.apps and name not in args.apps:
-            self.console.print(
-                f"[yellow]Skipping {'app ' + name if name else 'unnamed app'}.[/]"
-            )
+            console.print(f"[yellow]Skipping app '{name}'.[/]")
             return
 
         # Resolve the full output directory path
@@ -67,7 +67,11 @@ class cdk8s_cli:
 
         # Not implemented yet
         if args.action == "diff":
-            _diff(app, name, args)
+            _diff(app, name, output_dir, k8s_client, args)
+
+        # Not implemented yet
+        if args.action == "delete":
+            _delete(app, name, output_dir, k8s_client, args)
 
         if args.action == "apply":
             _apply(app, name, output_dir, k8s_client, args)

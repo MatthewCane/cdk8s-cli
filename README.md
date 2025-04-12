@@ -24,7 +24,7 @@ app = App()
 ApplicationChart(app, "chart-name")
 
 # Then call the CLI with:
-cdk8s_cli(app)
+cdk8s_cli(app, name="my-app")
 ```
 
 That's it! You can now run your application with the desired flags
@@ -68,7 +68,7 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --apps APPS [APPS ...]
-                        the apps to apply. If supplied, unnamed apps will always be skipped
+                        the apps to apply. Defaults to all apps. If supplied, apps not in this list will be skipped
   --kube-context KUBE_CONTEXT
                         the Kubernetes context to use. Defaults to minikube
   --kube-config-file KUBE_CONFIG_FILE

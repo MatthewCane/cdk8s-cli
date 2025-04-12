@@ -1,5 +1,5 @@
 import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, Chart
+from cdk8s import ApiObjectMetadata, Chart, Size, Helm, Duration
 from constructs import Construct
 
 from examples.complex.config import ApplicationConfig
@@ -15,21 +15,68 @@ class ApplicationChart(Chart):
         id = "demo-app-" + stage
         super().__init__(scope, id)
 
+        # Create a namespace for the application
         namespace = kplus.Namespace(self, id)
 
+        VALKEY_SERVICE_NAME = "valkey-primary"
+
+        # Create a secret for the valkey auth. The key must be REDISCLI_AUTH
+        # for the redis-cli to pick up the password automatically.
+        valkey_secret_value = "demo-app-secret"
+        valkey_secret_key = "REDISCLI_AUTH"
+        valkey_secret = kplus.Secret(
+            self,
+            "valkey-secret",
+            metadata=ApiObjectMetadata(namespace=namespace.name),
+            string_data={valkey_secret_key: valkey_secret_value},
+        )
+
+        # Create a deployment for the application
         deployment = kplus.Deployment(
             self,
-            "deployment",
+            "valkey-cli",
             replicas=config.replicas,
             metadata=ApiObjectMetadata(namespace=namespace.name),
         )
 
+        probe = kplus.Probe.from_command(
+            command=["valkey-cli", "-h", VALKEY_SERVICE_NAME, "ping"],
+            initial_delay_seconds=Duration.seconds(10),
+        )
+
+        # Create a container for valkey-cli. This is a simple container that
+        # connects to the valkey instance and monitors the application.
         deployment.add_container(
-            image="nginx",
+            image="valkey/valkey",
             security_context=kplus.ContainerSecurityContextProps(
                 ensure_non_root=False, read_only_root_filesystem=False
             ),
-            port_number=80,
+            resources=kplus.ContainerResources(
+                cpu=kplus.CpuResources(limit=kplus.Cpu.millis(250)),
+                memory=kplus.MemoryResources(limit=Size.mebibytes(256)),
+            ),
+            env_from=[kplus.EnvFrom(sec=valkey_secret)],
+            command=["valkey-cli", "-h", VALKEY_SERVICE_NAME, "monitor"],
+            liveness=probe,
+            readiness=probe,
         )
 
-        deployment.expose_via_service(service_type=kplus.ServiceType.NODE_PORT)
+        # Create a helm chart for the valkey cluster
+        Helm(
+            self,
+            "helm",
+            chart="oci://registry-1.docker.io/bitnamicharts/valkey",
+            release_name="valkey",
+            namespace=namespace.name,
+            values={
+                "auth": {
+                    "enabled": True,
+                    "existingSecret": valkey_secret.name,
+                    "existingSecretPasswordKey": valkey_secret_key,
+                },
+                "architecture": "standalone",
+                "persistence": {
+                    "enabled": False,
+                },
+            },
+        )

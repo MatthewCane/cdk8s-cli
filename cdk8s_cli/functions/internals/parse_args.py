@@ -15,7 +15,7 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "--apps",
         nargs="+",
-        help="the apps to apply. If supplied, unnamed apps will always be skipped",
+        help="the apps to apply. Defaults to all apps. If supplied, apps not in this list will be skipped",
     )
     parser.add_argument(
         "--kube-context",

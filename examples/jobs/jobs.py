@@ -42,7 +42,7 @@ def main():
         scripts=scripts,
     )
 
-    cdk8s_cli(app)
+    cdk8s_cli(app, name="jobs")
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ def main():
     app = App()
     ApplicationChart(app, "simple-cdk8s-chart")
 
-    cdk8s_cli(app)
+    cdk8s_cli(app, name="simple")
 
 
 if __name__ == "__main__":

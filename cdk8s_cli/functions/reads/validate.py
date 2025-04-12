@@ -30,24 +30,31 @@ def validate(
     start_time = time()
     padding = get_padding(resources)
     # The whole proceeding status check context is very hard to read, needs to be refactored.
-    with console.status(
-        status="Waiting for reasources to report ready...\n  "
-        + "\n  ".join(
-            [
-                f"[purple]{k + '[/]':{'.'}<{padding}}{'[green]Ready[/]' if v else '[red]Not Ready[/]'}"
-                for k, v in readiness.items()
-            ]
-        )
-    ):
-        while not all(readiness.values()):
-            sleep(1)
-            readiness = get_resources_ready_status(resources, dynamic_client)
-            if time() - start_time > TIMEOUT.to_seconds():
-                console.print("[red]Timeout reached. Not all resources are ready.[/]")
-                if args.verbose:
+    try:
+        with console.status(
+            status="Waiting for reasources to report ready...\n  "
+            + "\n  ".join(
+                [
+                    f"[purple]{k + '[/]':{'.'}<{padding}}{'[green]Ready[/]' if v else '[red]Not Ready[/]'}"
+                    for k, v in readiness.items()
+                ]
+            )
+        ):
+            while not all(readiness.values()):
+                sleep(1)
+                readiness = get_resources_ready_status(resources, dynamic_client)
+                if time() - start_time > TIMEOUT.to_seconds():
                     console.print(
-                        "Timed out after waiting for", TIMEOUT.to_human_string()
+                        "[red]Timeout reached. Not all resources are ready.[/]"
                     )
-                exit(1)
+                    if args.verbose:
+                        console.print(
+                            "Timed out after waiting for", TIMEOUT.to_human_string()
+                        )
+                    exit(1)
 
-        console.print("[green]All resources are ready.[/]")
+    except KeyboardInterrupt:
+        console.print("[red]Validation cancelled by users.[/]")
+        exit(1)
+
+    console.print("[green]All resources are ready.[/]")

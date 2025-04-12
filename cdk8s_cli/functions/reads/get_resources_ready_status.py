@@ -36,12 +36,18 @@ def resource_is_healthy(resource: ResourceInstance) -> bool:
     """
     status = resource.status
 
-    # No status is good status
+    # No status is good status?
     if not status:
         return True
 
+    # StatefulSet is ready if the number of ready replicas is equal to the number of replicas
+    if resource.kind == "StatefulSet":
+        return status.ready_replicas == status.replicas
+
+    # If there are no conditions, the resource is ready
     if not status.conditions:
         return True
+
     good_conditions = ["Ready", "Succeeded", "Available"]
     for condition in status.conditions:
         if condition.type in good_conditions and condition.status == "True":
