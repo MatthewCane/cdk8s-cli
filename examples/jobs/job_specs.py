@@ -50,7 +50,7 @@ class PythonJobs(Chart):
             job = kplus.Job(
                 self,
                 name,
-                ttl_after_finished=Duration.seconds(10),
+                ttl_after_finished=Duration.seconds(30),
                 metadata=ApiObjectMetadata(namespace=namespace),
             )
 
