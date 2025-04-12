@@ -1,0 +1,2 @@
+class FailToSynthError(Exception):
+    pass
