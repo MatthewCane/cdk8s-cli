@@ -1,12 +1,18 @@
-# CDK8S CLI
+# CDK8S Deployment CLI
 
-**A CLI helper for cdk8s.**
+**A CLI for deploying Python cdk8s applications.**
 
 This is a work-in-progress project with no promise of continued support or development. This is not sutable for production applications.
 
-## Features
+## Rationale
 
-This project provides a simple CLI to help with applying cdk8s charts.
+cdk8s is a great tool for defining Kubernetes resources using code and rendering them into a Kubernetes manifest, however there is a gap in the tooling for deploying cdk8s applications. It can be done a number of ways, such as:
+
+1. Rendering the manifest and applying it with `kubectl`
+2. Using the existing cdk8s cli to generate a Helm chart and then applying it with `helm`
+3. Utilising integrations with other IaC tools such as the AWS CDK or Terraform
+
+This project aims to fill that gap by providing a CLI for deploying cdk8s applications directly using the kubernetes Python client.
 
 ## Usage
 
@@ -63,22 +69,29 @@ python3 main.py deploy --apps dev prod
 
 ```text
 positional arguments:
-  {synth,apply}         the action to perform. synth will synth the resources to the output directory. apply will apply the resources to the Kubernetes cluster
+  {synth,apply,list}    the action to perform. synth will synth the resources
+                        to the output directory. apply will apply the
+                        resources to the Kubernetes cluster
 
 options:
   -h, --help            show this help message and exit
   --apps APPS [APPS ...]
-                        the apps to apply. Defaults to all apps. If supplied, apps not in this list will be skipped
+                        the apps to apply. Defaults to all apps. If supplied,
+                        apps not in this list will be skipped
   --kube-context KUBE_CONTEXT
                         the Kubernetes context to use. Defaults to minikube
   --kube-config-file KUBE_CONFIG_FILE
                         the path to a kubeconfig file
   --verbose             enable verbose output
-  --unattended          enable unattended mode. This will not prompt for confirmation before applying
+  --unattended          enable unattended mode. This will not prompt for
+                        confirmation before applying
   --debug               enable debug mode. This will print debug information
-  --validate            experimental feature. Will enable validation mode. This will wait for resources to report ready before exiting
+  --validate            experimental feature. Will enable validation mode.
+                        This will wait for resources to report ready before
+                        exiting
   --validate-timeout-minutes VALIDATE_TIMEOUT_MINUTES
-                        the number of minutes to wait for resources to report ready before timing out. Needs --validate to be set
+                        the number of minutes to wait for resources to report
+                        ready before timing out. Needs --validate to be set
 ```
 
 ## Development
