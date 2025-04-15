@@ -2,11 +2,12 @@ from argparse import Namespace
 from pathlib import Path
 from typing import Optional
 from cdk8s import App
-from kubernetes import config, client
+from kubernetes import client
 from kubernetes.dynamic import ResourceInstance
 from kubernetes.utils import FailToCreateError, create_from_directory
 from more_itertools import collapse
 from json import loads
+from cdk8s_cli.functions.internals.get_client import get_api_client
 from cdk8s_cli.functions.internals.synth import _synth_app
 from cdk8s_cli.functions.internals.printing import (
     get_console,
@@ -42,11 +43,7 @@ def _apply(
             return
 
     # If a k8s client is not supplied, load the kubeconfig file
-    if not k8s_client:
-        config.load_kube_config(
-            config_file=args.kube_config_file, context=args.kube_context
-        )
-        k8s_client = client.ApiClient()
+    k8s_client = get_api_client(k8s_client, args)
 
     resources: list[ResourceInstance] = list()
     try:

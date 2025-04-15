@@ -1,5 +1,5 @@
 import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, App, Chart
+from cdk8s import App, Chart
 from constructs import Construct
 
 from cdk8s_cli.cdk8s_cli import cdk8s_cli
@@ -11,15 +11,12 @@ class ApplicationChart(Chart):
         scope: Construct,
         id: str,
     ) -> None:
-        super().__init__(scope, id)
-
-        namespace = kplus.Namespace(self, id)
+        super().__init__(scope, id, namespace=id)
 
         deployment = kplus.Deployment(
             self,
             "deployment",
             replicas=1,
-            metadata=ApiObjectMetadata(namespace=namespace.name),
         )
 
         deployment.add_container(

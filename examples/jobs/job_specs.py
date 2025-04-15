@@ -1,5 +1,5 @@
 import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, Chart, Duration, Size
+from cdk8s import Chart, Duration, Size
 from constructs import Construct
 
 
@@ -12,13 +12,12 @@ class BasicJobSpec(Chart):
         image: str = "busybox",
         namespace: str = "default",
     ):
-        super().__init__(scope, id)
+        super().__init__(scope, id, namespace=namespace)
 
         job = kplus.Job(
             self,
             "job",
             ttl_after_finished=Duration.seconds(10),
-            metadata=ApiObjectMetadata(namespace=namespace),
         )
 
         job.add_container(
@@ -36,13 +35,12 @@ class PythonJobs(Chart):
         scripts: dict[str, str],
         namespace: str = "default",
     ):
-        super().__init__(scope, id)
+        super().__init__(scope, id, namespace=namespace)
 
         config_map = kplus.ConfigMap(
             self,
             "config-map",
             data={f"{name}.py": script for name, script in scripts.items()},
-            metadata=ApiObjectMetadata(namespace=namespace),
         )
         volume = kplus.Volume.from_config_map(self, "volume", config_map)
 
@@ -51,7 +49,6 @@ class PythonJobs(Chart):
                 self,
                 name,
                 ttl_after_finished=Duration.seconds(30),
-                metadata=ApiObjectMetadata(namespace=namespace),
             )
 
             job.add_container(

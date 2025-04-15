@@ -1,5 +1,5 @@
 import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, Chart, Size, Helm, Duration
+from cdk8s import Chart, Size, Helm, Duration
 from constructs import Construct
 
 from examples.complex.config import ApplicationConfig
@@ -9,14 +9,10 @@ class ApplicationChart(Chart):
     def __init__(
         self,
         scope: Construct,
-        stage: str,
+        id: str,
         config: ApplicationConfig,
     ) -> None:
-        id = "demo-app-" + stage
-        super().__init__(scope, id)
-
-        # Create a namespace for the application
-        namespace = kplus.Namespace(self, id)
+        super().__init__(scope, id, namespace=id)
 
         VALKEY_SERVICE_NAME = "valkey-primary"
 
@@ -27,7 +23,6 @@ class ApplicationChart(Chart):
         valkey_secret = kplus.Secret(
             self,
             "valkey-secret",
-            metadata=ApiObjectMetadata(namespace=namespace.name),
             string_data={valkey_secret_key: valkey_secret_value},
         )
 
@@ -36,7 +31,6 @@ class ApplicationChart(Chart):
             self,
             "valkey-cli",
             replicas=config.replicas,
-            metadata=ApiObjectMetadata(namespace=namespace.name),
         )
 
         probe = kplus.Probe.from_command(
@@ -67,7 +61,7 @@ class ApplicationChart(Chart):
             "helm",
             chart="oci://registry-1.docker.io/bitnamicharts/valkey",
             release_name="valkey",
-            namespace=namespace.name,
+            namespace=id,
             values={
                 "auth": {
                     "enabled": True,

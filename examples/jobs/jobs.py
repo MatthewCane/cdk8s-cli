@@ -1,25 +1,15 @@
 from pathlib import Path
 
-import cdk8s_plus_31 as kplus
-from cdk8s import ApiObjectMetadata, App, Chart
-from constructs import Construct
+from cdk8s import App
+
 
 from cdk8s_cli.cdk8s_cli import cdk8s_cli
 from examples.jobs.job_specs import BasicJobSpec, PythonJobs
 
 
-class Namespace(Chart):
-    def __init__(self, scope: Construct, id: str, name: str):
-        super().__init__(scope, id)
-
-        kplus.Namespace(self, "namespace", metadata=ApiObjectMetadata(name=name))
-
-
 def main():
     namespace = "example-jobs"
     app = App()
-
-    Namespace(app, "namespace", name=namespace)
 
     BasicJobSpec(app, "hello", namespace=namespace, command=["echo", "hello, world"])
 
