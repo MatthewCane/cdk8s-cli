@@ -77,20 +77,20 @@ typeguard = ">=2.13.3,<4.3.0"
 
 [[package]]
 name = "cdk8s-plus-31"
-version = "2.1.10"
+version = "2.2.5"
 description = "cdk8s+ is a software development framework that provides high level abstractions for authoring Kubernetes applications. cdk8s-plus-31 synthesizes Kubernetes manifests for Kubernetes 1.31.0"
 optional = false
 python-versions = "~=3.9"
 groups = ["main"]
 files = [
-    {file = "cdk8s_plus_31-2.1.10-py3-none-any.whl", hash = "sha256:f772137d8babf4cd0bff72161072d383ac2205208dbaf29a1d9e500a7bef7026"},
-    {file = "cdk8s_plus_31-2.1.10.tar.gz", hash = "sha256:53713227aaa878c3e2cb0600353a714eec45e8df03e7ea2816cc5ff8e1f5518e"},
+    {file = "cdk8s_plus_31-2.2.5-py3-none-any.whl", hash = "sha256:b9ced63647caa8ebbad26eca1bcd439a2727c7e19958f71eb369ac453c77e7a9"},
+    {file = "cdk8s_plus_31-2.2.5.tar.gz", hash = "sha256:87d0c8d189502d7b71b46da50fd1c8b3845ca2bf96d0c398bbcca1503b0104a1"},
 ]
 
 [package.dependencies]
 cdk8s = ">=2.68.11,<3.0.0"
 constructs = ">=10.3.0,<11.0.0"
-jsii = ">=1.111.0,<2.0.0"
+jsii = ">=1.112.0,<2.0.0"
 publication = ">=0.0.3"
 typeguard = ">=2.13.3,<4.3.0"
 
@@ -354,24 +354,24 @@ files = [
 
 [[package]]
 name = "jsii"
-version = "1.111.0"
+version = "1.112.0"
 description = "Python client for jsii runtime"
 optional = false
 python-versions = "~=3.9"
 groups = ["main"]
 files = [
-    {file = "jsii-1.111.0-py3-none-any.whl", hash = "sha256:3084e31173e73d2eefee678c8ee31aa49428830509043057a421a4c0dde94434"},
-    {file = "jsii-1.111.0.tar.gz", hash = "sha256:db523ab9b6575c84d6ed8779cdbdc739abd48a7cb0723b66beb84c1a9dc31c7c"},
+    {file = "jsii-1.112.0-py3-none-any.whl", hash = "sha256:6510c223074d9b206fd0570849a791e4d9ecfff7ffe68428de73870cea9f55a1"},
+    {file = "jsii-1.112.0.tar.gz", hash = "sha256:6b7d19f361c2565b76828ecbe8cbed8b8d6028a82aa98a46b206a4ee5083157e"},
 ]
 
 [package.dependencies]
 attrs = ">=21.2,<26.0"
 cattrs = ">=1.8,<24.2"
-importlib-resources = ">=5.2.0"
+importlib_resources = ">=5.2.0"
 publication = ">=0.0.3"
 python-dateutil = "*"
 typeguard = ">=2.13.3,<4.5.0"
-typing-extensions = ">=3.8,<5.0"
+typing_extensions = ">=3.8,<5.0"
 
 [[package]]
 name = "jsonschema"
